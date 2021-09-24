@@ -3,8 +3,10 @@
 #include <math.h>
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
 #include "bmp.h"
 #include "pg.h"
+#include "line.h"
 
 static inline float square(float x)
 {
@@ -16,7 +18,7 @@ static float dist(float xa, float ya, float xb, float yb)
 	return sqrtf(square(xa - xb) + square(ya - yb));
 }
 
-int main(int argc, char** argv)
+int main(int argc, const char** argv)
 {
 	/* Parse command line arguments. */
 	const char* output_file_path = "out.bmp";
@@ -43,13 +45,15 @@ int main(int argc, char** argv)
 		if (dist(x, y, pg.w/2, pg.h/2) <= pg.w/2)
 		{
 			pg.pixel_grid[x + pg.w * y] = (pixel_t){
-				.r = x * 255 / W,
-				.g = y * 255 / H,
-				.b = (x - y) - 2*(x + y),
+				.r = 255,
+				.g = 255,
+				.b = 255,
 				.a = 255,
 			};
 		}
 	}
+
+	line_naive(pg, (pixel_t){0, 0, 0, 255}, 20.0f, 20.0f, 100.0f, 1000.0f);
 
 	output_pg_as_bitmap(pg, output_file_path);
 
