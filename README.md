@@ -5,9 +5,10 @@
 
 - Proper README introduction
 - Take notes on [this paper](https://www.dmg.tuwien.ac.at/geom/ig/publications/stringart/stringart.pdf)
+- Use the BITMAPINFOHEADER bitmap header to have alpha channel and rgb masks
+- Fix line_xiaolin_wu end points rendering
 - How to render lines ?
   - Implement [Bresenham](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm)
-  - Implement [Xiaolin Wu](https://en.wikipedia.org/wiki/Xiaolin_Wu%27s_line_algorithm)
   - Search for a complete list of all the State-of-the-Art line rendeing algorithms
   - Try to design an other algorithm
     - Sacrifice speed for more accuracy (using math)
