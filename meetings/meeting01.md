@@ -47,7 +47,7 @@ the Wikipedia page's pseudo-code.
 
 [Wikipedia page's pseudo-code.](https://en.wikipedia.org/wiki/Xiaolin_Wu's_line_algorithm#Algorithm)
 
-### Make a bitmap loader.
+### Make a bitmap loader
 
 String art *is* mimicking an image using strings, so getting images onto the
 running program's memory seems like the logical next step.
