@@ -1,9 +1,9 @@
 
+#include "bmp.h"
+#include "pg.h"
 #include <stddef.h> /* offsetof */
 #include <stdio.h>
 #include <assert.h>
-#include "bmp.h"
-#include "pg.h"
 
 void output_pg_as_bitmap(pg_t pg, const char* output_file_path)
 {

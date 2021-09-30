@@ -1,7 +1,9 @@
 
+#include "line.h"
+#include "pg.h"
 #include <math.h>
 #include <assert.h>
-#include "pg.h"
+#include <stdio.h>
 
 void line_naive(pg_t pg, pixel_t color,
 	float xa, float ya, float xb, float yb)
@@ -105,29 +107,13 @@ void line_naive_2(pg_t pg, pixel_t color,
 	}
 }
 
-static void plot(pg_t pg, pixel_t color, int ix, int iy, float brightness)
-{
-	if (0 <= ix && ix < (int)pg.w && 0 <= iy && iy < (int)pg.h)
-	{
-		#define CHANNEL(c_) \
-			pg.pixel_grid[ix + pg.w * iy].c_ = \
-				(1.0f - brightness) * pg.pixel_grid[ix + pg.w * iy].c_ + \
-				brightness * color.c_
-		CHANNEL(r);
-		CHANNEL(g);
-		CHANNEL(b);
-		CHANNEL(a);
-		#undef CHANNEL
-	}
-}
-
 static inline float frac(float x)
 {
 	return x - floorf(x);
 }
 
 /* TODO: Understand and comment. */
-void line_xiaolin_wu(pg_t pg, pixel_t color,
+void line_xiaolin_wu(plotter_t plot, void* ptr, pixel_t color,
 	float xa, float ya, float xb, float yb)
 {
 	const int is_steep = fabsf(yb - ya) > fabsf(xb - xa);
@@ -154,11 +140,11 @@ void line_xiaolin_wu(pg_t pg, pixel_t color,
 		{ \
 			if (is_steep) \
 			{ \
-				plot(pg, color, (y_), (x_), brightness_); \
+				plot(ptr, (y_), (x_), (brightness_), color); \
 			} \
 			else \
 			{ \
-				plot(pg, color, (x_), (y_), brightness_); \
+				plot(ptr, (x_), (y_), (brightness_), color); \
 			} \
 		} while (0)
 

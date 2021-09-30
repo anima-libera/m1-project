@@ -4,8 +4,8 @@
 #ifndef HEADER_BMP_
 #define HEADER_BMP_
 
-#include <stdint.h>
 #include "pg.h"
+#include <stdint.h>
 
 /* Bitmap file format header (without the magic number),
  * https://en.wikipedia.org/wiki/BMP_file_format
