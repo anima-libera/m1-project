@@ -162,31 +162,34 @@ void line_xiaolin_wu(pg_t pg, pixel_t color,
 			} \
 		} while (0)
 
+	/* End point A. */
 	float intery;
-	int xpxl1;
+	int xpa;
 	{
 		const float xend = roundf(xa);
 		const float yend = ya + gradient * (xend - xa);
 		const float xgap = 1.0f - frac(xa + 0.5f);
-		xpxl1 = xend;
-		const int ypxl1 = floorf(yend);
-		PLOT(xpxl1, ypxl1, (1.0f - frac(yend)) * xgap);
-		PLOT(xpxl1, ypxl1 + 1, frac(yend) * xgap);
+		xpa = xend;
+		const int ypa = floorf(yend);
+		PLOT(xpa, ypa, (1.0f - frac(yend)) * xgap);
+		PLOT(xpa, ypa + 1, frac(yend) * xgap);
 		intery = yend + gradient;
 	}
 
-	int xpxl2;
+	/* End point B. */
+	int xpb;
 	{
 		const float xend = roundf(xb);
 		const float yend = yb + gradient * (xend - xb);
 		const float xgap = frac(xb + 0.5f);
-		xpxl2 = xend;
-		const int ypxl2 = floorf(yend);
-		PLOT(xpxl2, ypxl2, (1.0f - frac(yend)) * xgap);
-		PLOT(xpxl2, ypxl2 + 1, frac(yend) * xgap);
+		xpb = xend;
+		const int ypb = floorf(yend);
+		PLOT(xpb, ypb, (1.0f - frac(yend)) * xgap);
+		PLOT(xpb, ypb + 1, frac(yend) * xgap);
 	}
 
-	for (int x = roundf(xpxl1 + 1.0f); x <= roundf(xpxl2 - 1.0f); x++)
+	/* The actual line. */
+	for (int x = roundf(xpa + 1.0f); x <= roundf(xpb - 1.0f); x++)
 	{
 		PLOT((float)x, floorf(intery), 1.0f - frac(intery));
 		PLOT((float)x, floorf(intery) + 1.0f, frac(intery));

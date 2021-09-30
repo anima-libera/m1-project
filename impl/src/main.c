@@ -7,13 +7,7 @@
 #include "bmp.h"
 #include "pg.h"
 #include "line.h"
-
-#define TAU 6.28318530717
-
-static float dist(float xa, float ya, float xb, float yb)
-{
-	return sqrtf((xa-xb)*(xa-xb) + (ya-yb)*(ya-yb));
-}
+#include "utils.h"
 
 int main(int argc, const char** argv)
 {
@@ -53,7 +47,7 @@ int main(int argc, const char** argv)
 	#define N 400
 	for (unsigned int i = 0; i < N; i++)
 	{
-		line_xiaolin_wu(pg, (pixel_t){255, 0, 0, 255},
+		line_xiaolin_wu(pg, (pixel_t){100, 0, 0, 255},
 			(float)(pg.w/2) + (float)(pg.w/2) * 0.3f * cosf((0.1f + (float)i / (float)N) * (float)TAU),
 			(float)(pg.h/2) + (float)(pg.h/2) * 0.3f * sinf((0.1f + (float)i / (float)N) * (float)TAU),
 			(float)(pg.w/2) + (float)(pg.w/2) * cosf((float)i / (float)N * (float)TAU),
