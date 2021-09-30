@@ -186,7 +186,7 @@ void line_xiaolin_wu(pg_t pg, pixel_t color,
 		PLOT(xpxl2, ypxl2 + 1, frac(yend) * xgap);
 	}
 
-	for (int x = roundf(xpxl1 + 1.0f); x < roundf(xpxl2 - 1.0f); x++)
+	for (int x = roundf(xpxl1 + 1.0f); x <= roundf(xpxl2 - 1.0f); x++)
 	{
 		PLOT((float)x, floorf(intery), 1.0f - frac(intery));
 		PLOT((float)x, floorf(intery) + 1.0f, frac(intery));
