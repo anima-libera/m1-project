@@ -4,7 +4,7 @@
 ## TODO
 
 - Proper README introduction
-- Take notes on [this paper](https://www.dmg.tuwien.ac.at/geom/ig/publications/stringart/stringart.pdf)
+- Take more notes on [this paper](https://www.dmg.tuwien.ac.at/geom/ig/publications/stringart/stringart.pdf)
 - How to render lines ?
   - Implement [Bresenham](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm)
   - Search for a complete list of all the State-of-the-Art line rendeing algorithms
