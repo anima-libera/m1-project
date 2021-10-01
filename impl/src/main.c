@@ -206,6 +206,8 @@ int main(int argc, const char** argv)
 		}
 	}
 
+	#if 0
+
 	pg_t target;
 	pg_init_white_disc(&target, 0);
 	for (unsigned int y = 0; y < target.h; y++)
@@ -263,6 +265,17 @@ int main(int argc, const char** argv)
 	output_pg_as_bitmap(target, "target.bmp");
 	output_pg_as_bitmap(current, output_file_path);
 	output_pg_as_bitmap(trace, "trace.bmp");
+
+	#endif
+
+	pg_t pg;
+	pg_init_white_disc(&pg, 255);
+
+	line_xiaolin_wu(plotter_plot, &pg,
+		(pixel_t){0, 0, 255, 255},
+		300.0f, 300.0f, 600.0f, 700.0f);
+
+	output_pg_as_bitmap(pg, output_file_path);
 
 	return 0;
 }
