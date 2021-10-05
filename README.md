@@ -5,10 +5,10 @@
 
 - Proper README introduction
 - Take more notes on [this paper](https://www.dmg.tuwien.ac.at/geom/ig/publications/stringart/stringart.pdf)
-- How to render lines ?
-  - Implement [Bresenham](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm)
+- Comment the code!
+- Render lines
   - Search for a complete list of all the State-of-the-Art line rendeing algorithms
-  - Try to design an other algorithm
+  - Try to design an other algorithms
     - Sacrifice speed for more accuracy (using math)
 - Implement some string art algorithms
   - Take a look at [this repo](https://github.com/danielvarga/string-art)
