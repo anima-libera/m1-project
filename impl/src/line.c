@@ -2,6 +2,7 @@
 #include "line.h"
 #include "pg.h"
 #include <math.h>
+#include <stdlib.h> /* abs */
 #include <assert.h>
 #include <stdio.h>
 
@@ -180,5 +181,35 @@ void line_xiaolin_wu(plotter_t plot, void* ptr, pixel_t color,
 		PLOT((float)x, floorf(intery), 1.0f - frac(intery));
 		PLOT((float)x, floorf(intery) + 1.0f, frac(intery));
 		intery += gradient;
+	}
+}
+
+/* TODO: Understand and comment. */
+void line_mid_point(plotter_t plot, void* ptr, pixel_t color,
+	int xa, int ya, int xb, int yb)
+{
+	int dx = abs(xb - xa);
+	int sx = xa < xb ? 1 : -1;
+	int dy = -abs(yb - ya);
+	int sy = ya < yb ? 1 : -1;
+	int err = dx + dy;
+	while (1)
+	{
+		plot(ptr, xa, ya, 1.0f, color);
+		if (xa == xb && ya == yb)
+		{
+			break;
+		}
+		int e2 = 2 * err;
+		if (e2 >= dy)
+		{
+			err += dy;
+			xa += sx;
+		}
+		if (e2 <= dx)
+		{
+			err += dx;
+			ya += sy;
+		}
 	}
 }

@@ -268,14 +268,22 @@ int main(int argc, const char** argv)
 
 	#endif
 
+	#if 1
+
 	pg_t pg;
 	pg_init_white_disc(&pg, 255);
 
 	line_xiaolin_wu(plotter_plot, &pg,
+		(pixel_t){0, 255, 0, 255},
+		300.0f, 300.0f, 600.0f, 761.0f);
+
+	line_mid_point(plotter_plot, &pg,
 		(pixel_t){0, 0, 255, 255},
-		300.0f, 300.0f, 600.0f, 700.0f);
+		300.0f, 300.0f, 600.0f, 761.0f);
 
 	output_pg_as_bitmap(pg, output_file_path);
+
+	#endif
 
 	return 0;
 }
