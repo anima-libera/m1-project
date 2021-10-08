@@ -25,6 +25,8 @@ typedef struct pg_t pg_t;
  * disc (biggets that fits) on a black transparent background. */
 void pg_init_1024_white_disc(pg_t* pg, uint8_t alpha);
 
+void pg_init_1024_white(pg_t* pg, uint8_t alpha);
+
 /* Pixel modification.
  * When one pixel if modified by a line that might be drawn,
  * this struct sums up what pixel is being modified and how.

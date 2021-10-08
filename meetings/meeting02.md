@@ -47,15 +47,15 @@ on the canvas. Pins are to be implemented somehow.
 
 ### Implement a simple string art algorithm
 
-```
+```text
 The target is the image that is to be replicated.
 The canvas is the blank image on which lines (strings) will be drawn.
 Loop for some time {
-	Let L be a (small) set of lines not drawn yet.
-	For each possible line in L, compute how dark that line is in the target.
-	Let D be the line that is the darkest in the target.
-	Draw D in the canvas.
-	Subtract D from the target.
+  Let L be a (small) set of lines not drawn yet.
+  For each possible line in L, compute how dark that line is in the target.
+  Let D be the line that is the darkest in the target.
+  Draw D in the canvas.
+  Subtract D from the target.
 }.
 ```
 
@@ -65,7 +65,8 @@ Multiple line drawing algorithms may come in handy when we will try to see
 the difference in speed of execution and accuracy of the result of different
 techniques, including different line drawing techniques.
 
-Moreover Caroline sent her slides about this algorithm among other things.
+Moreover Pr. Caroline Larboulette sent her slides about this algorithm
+among other things.
 
 Note: This was already in the TODO list of last week.
 

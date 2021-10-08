@@ -27,6 +27,7 @@ int main(int argc, const char** argv)
 
 	pg_t target;
 	pg_init_1024_white_disc(&target, 0);
+	pg_init_1024_white(&target, 0);
 	for (unsigned int y = 0; y < target.h; y++)
 	for (unsigned int x = 0; x < target.w; x++)
 	{
@@ -43,7 +44,8 @@ int main(int argc, const char** argv)
 
 	pg_t pg;
 	pg_init_1024_white_disc(&pg, 255);
-	pinset_t pinset = {.w = pg.w, .h = pg.h, .pin_number = 128};
+	pg_init_1024_white(&pg, 255);
+	pinset_t pinset = {.w = pg.w, .h = pg.h, .pin_number = 1024};
 
 	#if 0
 	int pin_index_a = 0;
@@ -106,7 +108,7 @@ int main(int argc, const char** argv)
 			(pixel_t){0, 0, 255, 255},
 			xa, ya, xb, yb);
 
-		if (pm_da.len < 100)
+		if (pm_da.len < 2)
 		{
 			line_mid_point(plotter_plot, &pg,
 				(pixel_t){0, 255, 0, 255},

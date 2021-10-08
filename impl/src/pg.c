@@ -30,3 +30,27 @@ void pg_init_1024_white_disc(pg_t* pg, uint8_t alpha)
 		}
 	}
 }
+
+void pg_init_1024_white(pg_t* pg, uint8_t alpha)
+{
+	assert(pg != NULL);
+	#define SIDE 1024
+	*pg = (pg_t){
+		.w = SIDE,
+		.h = SIDE,
+		.pixel_grid = malloc(SIDE * SIDE * sizeof(pixel_t)),
+	};
+	#undef SIDE
+
+	/* Draw white. */
+	for (unsigned int y = 0; y < pg->h; y++)
+	for (unsigned int x = 0; x < pg->w; x++)
+	{
+		pg->pixel_grid[x + pg->w * y] = (pixel_t){
+			.r = 255,
+			.g = 255,
+			.b = 255,
+			.a = alpha,
+		};
+	}
+}
