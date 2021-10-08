@@ -4,6 +4,9 @@
 #ifndef HEADER_UTILS_
 #define HEADER_UTILS_
 
+#include <assert.h>
+#include <stdlib.h>
+
 #define TAU 6.28318530717
 
 float square(float x);

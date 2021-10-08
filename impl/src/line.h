@@ -5,16 +5,16 @@
 #define HEADER_LINE_
 
 #include "pg.h"
+#include "plotter.h"
 
+/* Maybe remove ? It was a test anyway... */
+#if 0
 void line_naive(pg_t pg, pixel_t color,
 	float xa, float ya, float xb, float yb);
-
 void line_naive_2(pg_t pg, pixel_t color,
 	float xa, float ya, float xb, float yb);
+#endif
 
-typedef void (*plotter_t)(void* ptr,
-	int x, int y, float brightness, pixel_t color);
-	
 void line_xiaolin_wu(plotter_t plot, void* ptr, pixel_t color,
 	float xa, float ya, float xb, float yb);
 

@@ -6,6 +6,8 @@
 #include <assert.h>
 #include <stdio.h>
 
+/* Maybe remove ? It was a test anyway... */
+#if 0
 void line_naive(pg_t pg, pixel_t color,
 	float xa, float ya, float xb, float yb)
 {
@@ -107,6 +109,7 @@ void line_naive_2(pg_t pg, pixel_t color,
 		square_dist = square_dist_new;
 	}
 }
+#endif
 
 static inline float frac(float x)
 {
