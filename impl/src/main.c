@@ -4,7 +4,7 @@
 #include "line.h"
 #include "plotter.h"
 #include "utils.h"
-#include "pin.h"
+#include "pinset.h"
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -27,15 +27,20 @@ int main(int argc, const char** argv)
 
 	pg_t pg;
 	pg_init_1024_white_disc(&pg, 255);
+	pinset_t pinset = {.w = pg.w, .h = pg.h, .pin_number = 32};
 
-	int pin_index = 0;
-	float xa, ya, xb, yb;
-	pg_get_pin_pos(pg, pin_index++, &xa, &ya);
-	while (pg_get_pin_pos(pg, pin_index++, &xb, &yb))
+	int pin_index_a = 0;
+	float xa, ya;
+	while (pinset_get_pin_pos(pinset, pin_index_a++, &xa, &ya))
 	{
-		line_xiaolin_wu(plotter_plot, &pg,
-			(pixel_t){255, 0, 0, 255},
-			xa, ya, xb, yb);
+		int pin_index_b = 0;
+		float xb, yb;
+		while (pinset_get_pin_pos(pinset, pin_index_b++, &xb, &yb))
+		{
+			line_xiaolin_wu(plotter_plot, &pg,
+				(pixel_t){255, 0, 0, 255},
+				xa, ya, xb, yb);
+		}
 	}
 
 	output_pg_as_bitmap(pg, output_file_path);
