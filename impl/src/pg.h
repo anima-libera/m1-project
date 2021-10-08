@@ -21,6 +21,8 @@ struct pg_t
 };
 typedef struct pg_t pg_t;
 
+/* Initializes the given pg, allocates the pixel grid, and draws a white
+ * disc (biggets that fits) on a black transparent background. */
 void pg_init_1024_white_disc(pg_t* pg, uint8_t alpha);
 
 /* Pixel modification.
