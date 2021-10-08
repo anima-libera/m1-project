@@ -13,6 +13,8 @@ float square(float x);
 
 float dist(float xa, float ya, float xb, float yb);
 
+float clamp(float x, float inf, float sup);
+
 /* Used by DA_LENGTHEN. */
 unsigned int umax(unsigned int a, unsigned int b);
 

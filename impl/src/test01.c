@@ -68,22 +68,6 @@ float compute_error_delta_line(pg_t target, pg_t current, const line_t* line)
 	return error_delta;
 }
 
-static float clamp(float x, float inf, float sup)
-{
-	if (x < inf)
-	{
-		return inf;
-	}
-	else if (x > sup)
-	{
-		return sup;
-	}
-	else
-	{
-		return x;
-	}
-}
-
 void mutate_line_color(line_t* line)
 {
 	line->color.r += rand() % 31 - 15;
