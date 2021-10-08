@@ -25,22 +25,68 @@ int main(int argc, const char** argv)
 		}
 	}
 
+	pg_t target;
+	pg_init_1024_white_disc(&target, 0);
+	for (unsigned int y = 0; y < target.h; y++)
+	for (unsigned int x = 0; x < target.w; x++)
+	{
+		if (dist(x, y, target.w/2 - 200, target.h/2) <= target.w/5)
+		{
+			target.pixel_grid[x + target.w * y] = (pixel_t){
+				.r = 0,
+				.g = 0,
+				.b = 150,
+				.a = 255,
+			};
+		}
+	}
+
 	pg_t pg;
 	pg_init_1024_white_disc(&pg, 255);
-	pinset_t pinset = {.w = pg.w, .h = pg.h, .pin_number = 32};
+	pinset_t pinset = {.w = pg.w, .h = pg.h, .pin_number = 1024};
 
 	int pin_index_a = 0;
 	float xa, ya;
 	while (pinset_get_pin_pos(pinset, pin_index_a++, &xa, &ya))
 	{
+		float min_error = 9999.0f;
+		int min_error_pin_index = -1;
 		int pin_index_b = 0;
 		float xb, yb;
-		while (pinset_get_pin_pos(pinset, pin_index_b++, &xb, &yb))
+		while (pinset_get_pin_pos(pinset, pin_index_b, &xb, &yb))
 		{
-			line_xiaolin_wu(plotter_plot, &pg,
-				(pixel_t){255, 0, 0, 255},
+			pm_da_t pm_da = {0};
+			line_mid_point(plotter_pm_da, &pm_da,
+				(pixel_t){0, 0, 255, 255},
 				xa, ya, xb, yb);
+
+			float error = 0.0f;
+			const float max_raw_pixel_error = 255.0f * 3.0f;
+			for (unsigned int i = 0; i < pm_da.len; i++)
+			{
+				pm_t pm = pm_da.arr[i];
+				error += fabsf(pm.r - target.pixel_grid[pm.x + target.w * pm.y].r) / max_raw_pixel_error;
+				error += fabsf(pm.r - target.pixel_grid[pm.x + target.w * pm.y].g) / max_raw_pixel_error;
+				error += fabsf(pm.r - target.pixel_grid[pm.x + target.w * pm.y].b) / max_raw_pixel_error;
+			}
+			if (pm_da.len != 0)
+			{
+				error /= (float)pm_da.len;
+			}
+
+			if (error < min_error)
+			{
+				min_error = error;
+				min_error_pin_index = pin_index_b;
+			}
+			free(pm_da.arr);
+			pin_index_b++;
 		}
+
+		pinset_get_pin_pos(pinset, min_error_pin_index, &xb, &yb);
+		line_mid_point(plotter_plot, &pg,
+			(pixel_t){0, 0, 255, 255},
+			xa, ya, xb, yb);
 	}
 
 	output_pg_as_bitmap(pg, output_file_path);
