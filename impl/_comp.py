@@ -59,61 +59,6 @@ if option_help:
 	print(__doc__.strip().format(this_script = python + sys.argv[0]))
 	sys.exit(0)
 
-# Embedded content
-r"""
-embedded_header_file_name = "embedded.h" # See this file for some explanations
-embedded_source_file_name = "embedded.c" # This one will be overwritten
-embedded_re = (
-	r"{}\s*\(\s*\"([^\"]+)\"\s*,\s*({})\s*\)\s*([^\s][^;]+[^\s])\s*;".format(
-		"EMBEDDED", "|".join(("TEXT", "BINARY", "SIZE"))))
-def escape_as_string(string):
-	return "\"" + string.translate({
-		ord("\""): "\\\"", ord("\\"): "\\\\",
-		ord("\n"): "\\n", ord("\t"): "\\t"}) + "\""
-def escape_as_binary(byte_array):
-	return "{" + ", ".join([hex(b) for b in byte_array]) + "}"
-def just_the_size(byte_array):
-	return str(len(byte_array))
-def escape_file_content(filepath, escape_mode):
-	if option_debug:
-		print(f"Embed file \"{filepath}\" escaped as {escape_mode}")
-	try:
-		opening_mode, escape_function = {
-			"TEXT": ("rt", escape_as_string),
-			"BINARY": ("rb", escape_as_binary),
-			"SIZE": ("rb", just_the_size),
-		}[escape_mode]
-		with open(filepath, opening_mode) as file:
-			return escape_function(file.read())
-	except FileNotFoundError as error:
-		print("\x1b[31mEmbedded file error:\x1b[39m " +
-			"The embedded content generator couldn't find the file " +
-			f"\"{filepath}\" used in an EMBEDDED macro in the " +
-			f"\"{embedded_header_file_name}\" header file.")
-		raise error
-generated_c = []
-generated_c.append("")
-generated_c.append("/* This file is overwritten at each compilation.")
-generated_c.append(f" * Do not modify, see \"{embedded_header_file_name}\" " +
-	"or \"_comp.py\" instead. */")
-generated_c.append("")
-embedded_header_path = os.path.join(src_dir_name, embedded_header_file_name)
-with open(embedded_header_path, "r") as embedded_header_file:
-	for match in re.finditer(embedded_re, embedded_header_file.read()):
-		partial_file_path = match.group(1)
-		file_path = os.path.join(src_dir_name, partial_file_path)
-		escape_mode = match.group(2)
-		escaped_content = escape_file_content(file_path, escape_mode)
-		variable_declaration = match.group(3)
-		what = "Size in bytes" if escape_mode == "SIZE" else "Content"
-		generated_c.append(f"/* {what} of \"{partial_file_path}\". */")
-		generated_c.append(f"{variable_declaration} = {escaped_content};")
-		generated_c.append("")
-embedded_source_path = os.path.join(src_dir_name, embedded_source_file_name)
-with open(embedded_source_path, "w") as embedded_source_file:
-	embedded_source_file.write("\n".join(generated_c))
-"""
-
 # List src files
 src_file_names = []
 for dir_name, _, file_names in os.walk(src_dir_name):

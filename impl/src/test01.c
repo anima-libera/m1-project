@@ -102,7 +102,7 @@ void mutate_line(line_t* line, float pg_w, float pg_h)
 void proceed_to_test01(void)
 {
 	pg_t target;
-	pg_init_1024_white_disc(&target, 0);
+	pg_init_1024_white_disc(&target);
 	for (unsigned int y = 0; y < target.h; y++)
 	for (unsigned int x = 0; x < target.w; x++)
 	{
@@ -118,10 +118,10 @@ void proceed_to_test01(void)
 	}
 
 	pg_t current;
-	pg_init_1024_white_disc(&current, 255);
+	pg_init_1024_white_disc(&current);
 
 	pg_t trace;
-	pg_init_1024_white_disc(&trace, 255);
+	pg_init_1024_white_disc(&trace);
 
 	for (unsigned int j = 0; j < 20; j++)
 	{

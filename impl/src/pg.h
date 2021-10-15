@@ -21,11 +21,22 @@ struct pg_t
 };
 typedef struct pg_t pg_t;
 
-/* Initializes the given pg, allocates the pixel grid, and draws a white
- * disc (biggets that fits) on a black transparent background. */
-void pg_init_1024_white_disc(pg_t* pg, uint8_t alpha);
+/* Initializes the given pg, allocates the pixel grid,
+ * and draws a white disc (the biggets that fits)
+ * on a transparent black background. */
+void pg_init_1024_white_disc(pg_t* pg);
 
-void pg_init_1024_white(pg_t* pg, uint8_t alpha);
+/* Initializes the given pg, allocates the pixel grid,
+ * and fills it in white. */
+void pg_init_1024_white(pg_t* pg);
+
+/* Initializes the given pg, allocates the pixel grid,
+ * and fills it in white. */
+void pg_init_white(pg_t* pg, unsigned int w, unsigned int h);
+
+/* Initializes the given dst pg, allocates the pixel grid,
+ * and fills it with the content of the src pg, making a copy. */
+void pg_init_copy(pg_t* pg_dst, pg_t pg_src);
 
 /* Pixel modification.
  * When one pixel if modified by a line that might be drawn,
