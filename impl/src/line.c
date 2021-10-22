@@ -12,9 +12,10 @@ static inline float frac(float x)
 }
 
 /* TODO: Understand and comment. */
-void line_xiaolin_wu(plotter_t plot, void* ptr, pixel_t color,
-	float xa, float ya, float xb, float yb)
+void line_xiaolin_wu(plotter_t plot, void* ptr, line_t line)
 {
+	int xa = line.xa, ya = line.ya, xb = line.xb, yb = line.yb;
+
 	const int is_steep = fabsf(yb - ya) > fabsf(xb - xa);
 
 	#define SWAP(a_, b_) do { float tmp = a_; a_ = b_; b_ = tmp; } while (0)
@@ -39,11 +40,11 @@ void line_xiaolin_wu(plotter_t plot, void* ptr, pixel_t color,
 		{ \
 			if (is_steep) \
 			{ \
-				plot(ptr, (y_), (x_), (brightness_), color); \
+				plot(ptr, (y_), (x_), (brightness_), line.color); \
 			} \
 			else \
 			{ \
-				plot(ptr, (x_), (y_), (brightness_), color); \
+				plot(ptr, (x_), (y_), (brightness_), line.color); \
 			} \
 		} while (0)
 
@@ -83,9 +84,10 @@ void line_xiaolin_wu(plotter_t plot, void* ptr, pixel_t color,
 }
 
 /* TODO: Understand and comment. */
-void line_mid_point(plotter_t plot, void* ptr, pixel_t color,
-	int xa, int ya, int xb, int yb)
+void line_mid_point(plotter_t plot, void* ptr, line_t line)
 {
+	int xa = line.xa, ya = line.ya, xb = line.xb, yb = line.yb;
+
 	int dx = abs(xb - xa);
 	int sx = xa < xb ? 1 : -1;
 	int dy = -abs(yb - ya);
@@ -93,7 +95,7 @@ void line_mid_point(plotter_t plot, void* ptr, pixel_t color,
 	int err = dx + dy;
 	while (1)
 	{
-		plot(ptr, xa, ya, 1.0f, color);
+		plot(ptr, xa, ya, 1.0f, line.color);
 		if (xa == xb && ya == yb)
 		{
 			break;

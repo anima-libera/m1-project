@@ -46,6 +46,6 @@ void plotter_pm_da(void* ptr,
 		.r = color.r,
 		.g = color.g,
 		.b = color.b,
-		.a = brightness * 255.0f,
+		.a = brightness == 1.0f ? 255 : brightness * 255.0f,
 	};
 }

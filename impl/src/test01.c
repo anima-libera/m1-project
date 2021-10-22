@@ -10,6 +10,8 @@
 #include <assert.h>
 #include <stdio.h>
 
+#if 0
+
 pixel_t compute_pm_color(pixel_t current, pm_t pm)
 {
 	float pm_opacity = (float)pm.a / 255.0f;
@@ -159,3 +161,5 @@ void proceed_to_test01(void)
 	output_pg_as_bitmap(current, "result.bmp");
 	output_pg_as_bitmap(trace, "trace.bmp");
 }
+
+#endif

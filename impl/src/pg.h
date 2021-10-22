@@ -38,16 +38,17 @@ void pg_init_white(pg_t* pg, unsigned int w, unsigned int h);
  * and fills it with the content of the src pg, making a copy. */
 void pg_init_copy(pg_t* pg_dst, pg_t pg_src);
 
-/* Pixel modification.
- * When one pixel if modified by a line that might be drawn,
- * this struct sums up what pixel is being modified and how.
- * The alpha channel is used by algorithms that plots with
- * a non-0-or-1 brightness. */
-struct pm_t
-{
-	unsigned int x, y;
-	uint8_t r, g, b, a;
-};
-typedef struct pm_t pm_t;
+void pg_init_circles(pg_t* pg, pixel_t circles_color);
+
+void pg_init_pic(pg_t* pg,
+	const char* filepath_raw, const char* filepath_dim);
+
+void pg_init_pic_name(pg_t* pg, const char* pic_name);
+
+void pg_grayscalize(pg_t pg);
+
+void pg_blackandwhiteize(pg_t pg);
+
+float pg_average_grayscale_in_disc(pg_t pg);
 
 #endif /* HEADER_PG_ */

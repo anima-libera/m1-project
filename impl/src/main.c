@@ -6,22 +6,196 @@
 #include "utils.h"
 #include "pinset.h"
 #include "random.h"
+#include "stringart.h"
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
 #include <time.h>
+#include <float.h> /* FLT_MAX */
+#include <limits.h>
+
+
 
 #if 0
-struct line_t
+int choose_pin_a(pinset_t pinset, rg_t* rg,
+	unsigned int line_i, unsigned int line_number, unsigned int j)
 {
-	float xa, xb, ya, yb;
-	pixel_t color;
-};
-typedef struct line_t line_t;
+	(void)line_i;
+	(void)line_number;
+	return rg_int(rg, 0, pinset.pin_number-1);
+}
+
+int choose_pin_b(pinset_t pinset, rg_t* rg,
+	unsigned int line_i, unsigned int line_number, unsigned int j,
+	int pin_a)
+{
+	(void)line_i;
+	(void)line_number;
+	float xa, ya, xb, yb;
+	pinset_get_pin_pos(pinset, pin_a, &xa, &ya);
+	while (1)
+	{
+		int pin_b = rg_int(rg, 0, pinset.pin_number-1);
+		pinset_get_pin_pos(pinset, pin_b, &xb, &yb);
+		if (dist(xa, ya, xb, yb) > 100.0f)
+		{
+			return pin_b;
+		}
+	}
+}
+#elif 0
+int choose_pin_a(pinset_t pinset, rg_t* rg,
+	unsigned int i, unsigned int line_number, unsigned int j)
+{
+	(void)j;
+	return (float)i * (float)pinset.pin_number / (float)line_number;
+}
+
+int choose_pin_b(pinset_t pinset, rg_t* rg,
+	unsigned int i, unsigned int line_number, unsigned int j,
+	int pin_a)
+{
+	(void)i;
+	(void)line_number;
+	(void)j;
+	float xa, ya, xb, yb;
+	pinset_get_pin_pos(pinset, pin_a, &xa, &ya);
+	while (1)
+	{
+		int pin_b = rg_int(rg, 0, pinset.pin_number-1);
+		pinset_get_pin_pos(pinset, pin_b, &xb, &yb);
+		if (dist(xa, ya, xb, yb) > 100.0f)
+		{
+			return pin_b;
+		}
+	}
+}
+#elif 0
+int choose_pin_a(pinset_t pinset, rg_t* rg,
+	unsigned int i, unsigned int line_number, unsigned int j)
+{
+	(void)i;
+	(void)line_number;
+	(void)j;
+	return rg_int(rg, 0, pinset.pin_number-1);
+}
+
+int choose_pin_b(pinset_t pinset, rg_t* rg,
+	unsigned int i, unsigned int line_number, unsigned int j,
+	int pin_a)
+{
+	(void)i;
+	return (float)j * (float)pinset.pin_number / (float)line_number;
+}
 #endif
 
+#if 0
+void string_art_02(pinset_t pinset, pg_t canvas, pg_t target, pg_t trace,
+	rg_t* rg, unsigned int line_number,
+	float* error_delta_array, float* error_new_array,
+	float* average_grayscale_array)
+{
+	assert(rg != NULL);
+
+	float input_average_grayscale = pg_average_grayscale_in_disc(target);
+
+	for (unsigned int i = 0; i < line_number; i++)
+	{
+		line_t best_line;
+		float best_error_delta = FLT_MAX;
+		float best_error_new = FLT_MAX;
+
+		for (unsigned int j = 0; j < 1000; j++)
+		{
+			/* Generate random line. */
+
+			line_t line = {.color = {0, 0, 0, 255}};
+			int pin_a = choose_pin_a(pinset, rg, i, line_number, j);
+			int pin_b = choose_pin_b(pinset, rg, i, line_number, j, pin_a);
+			pinset_get_pin_pos(pinset, pin_a, &line.xa, &line.ya);
+			pinset_get_pin_pos(pinset, pin_b, &line.xb, &line.yb);
+
+			/* Test the generated line. */
+
+			pm_da_t pm_da = {0};
+			line_mid_point(plotter_pm_da, &pm_da,
+				line.color, line.xa, line.ya, line.xb, line.yb);
+
+			float error_delta = 0.0f;
+			float error_new = 0.0f;
+			for (unsigned int k = 0; k < pm_da.len; k++)
+			{
+				pm_t pm = pm_da.arr[k];
+				assert(pm.a == 255);
+				pixel_t cur_pix = canvas.pixel_grid[pm.x + canvas.w * pm.y];
+				pixel_t tar_pix = target.pixel_grid[pm.x + target.w * pm.y];
+				pixel_t new_pix = {pm.r, pm.g, pm.b, pm.a};
+
+				float pix_old_error = pixel_error(tar_pix, cur_pix);
+				float pix_new_error = pixel_error(tar_pix, new_pix);
+				float pix_error_delta = pix_new_error - pix_old_error;
+
+				error_delta += pix_error_delta;
+				error_new += pix_new_error;
+			}
+			error_delta /= (float)pm_da.len;
+			error_new /= (float)pm_da.len;
+
+			free(pm_da.arr);
+
+			if (error_new < best_error_new)
+			{
+				best_error_delta = error_delta;
+				best_error_new = error_new;
+				best_line = line;
+			}
+		}
+
+		assert(best_error_delta < FLT_MAX);
+
+		line_mid_point(plotter_plot, &canvas,
+			best_line.color,
+			best_line.xa, best_line.ya, best_line.xb, best_line.yb);
+
+		line_mid_point(plotter_plot, &target,
+			(pixel_t){255, 255, 255, 255},
+			best_line.xa, best_line.ya, best_line.xb, best_line.yb);
+
+		line_mid_point(plotter_plot, &trace,
+			(pixel_t){(float)i / (float)line_number * 255.0f, 0, 0, 255},
+			best_line.xa, best_line.ya, best_line.xb, best_line.yb);
+		
+		float canvas_average_grayscale = pg_average_grayscale_in_disc(canvas);
+
+		printf("%5d / %d  % .5f  %.5f   %.5f vs %.5f\n",
+			i+1, line_number, best_error_delta, best_error_new,
+			canvas_average_grayscale, input_average_grayscale);
+		if (error_delta_array != NULL)
+		{
+			error_delta_array[i] = best_error_delta;
+		}
+		if (error_new_array != NULL)
+		{
+			error_new_array[i] = best_error_new;
+		}
+		if (average_grayscale_array != NULL)
+		{
+			average_grayscale_array[i] = canvas_average_grayscale;
+		}
+
+		#if 1
+		if (canvas_average_grayscale > input_average_grayscale)
+		{
+			break;
+		}
+		#endif
+	}
+}
+#endif
+
+#if 0
 void string_art_01(pinset_t pinset, pg_t canvas, pg_t target, pg_t trace,
 	rg_t* rg, float* error_array, unsigned int line_number)
 {
@@ -88,97 +262,99 @@ void string_art_01(pinset_t pinset, pg_t canvas, pg_t target, pg_t trace,
 		}
 	}
 }
-
-void pg_init_blue_circles(pg_t* pg)
-{
-	pg_init_1024_white(pg);
-	for (unsigned int y = 0; y < pg->h; y++)
-	for (unsigned int x = 0; x < pg->w; x++)
-	{
-		if (dist(x, y, pg->w/2 - 200, pg->h/2) <= pg->w/7)
-		{
-			pg->pixel_grid[x + pg->w * y] = (pixel_t){
-				.r = 0,
-				.g = 0,
-				.b = 255,
-				.a = 255,
-			};
-		}
-		else if (dist(x, y, pg->w/2 - 150, pg->h/2 - 200) <= pg->w/8)
-		{
-			pg->pixel_grid[x + pg->w * y] = (pixel_t){
-				.r = 0,
-				.g = 0,
-				.b = 255,
-				.a = 255,
-			};
-		}
-		else if (dist(x, y, pg->w/2, pg->h/2 - 250) <= pg->w/18)
-		{
-			pg->pixel_grid[x + pg->w * y] = (pixel_t){
-				.r = 0,
-				.g = 0,
-				.b = 255,
-				.a = 255,
-			};
-		}
-	}
-}
-
-void pg_init_bird(pg_t* pg)
-{
-	pg->w = 1704;
-	pg->h = 2272;
-	unsigned int buffer_size = pg->w * pg->h * sizeof(pixel_t);
-	pg->pixel_grid = malloc(buffer_size);
-	FILE* bird_raw_file = fopen("../rawpics/bird.raw", "rb");
-	fread(pg->pixel_grid, buffer_size, 1, bird_raw_file);
-	fclose(bird_raw_file);
-}
+#endif
 
 int main(int argc, const char** argv)
 {
 	/* Parse command line arguments. */
-	const char* input_file_path = "input.bmp";
-	const char* output_file_path = "output.bmp";
-	const char* target_file_path = "target.bmp";
-	const char* trace_file_path = "trace.bmp";
-	const char* error_file_path = "error";
+	const char* input_pic_name = NULL;
 	for (unsigned int i = 1; i < (unsigned int)argc; i++)
 	{
-		if (strcmp(argv[i++], "-i") == 0 ||
-			strcmp(argv[i++], "--input") == 0)
+		if (strcmp(argv[i], "-i") == 0 ||
+			strcmp(argv[i], "--input-pic-name") == 0)
 		{
+			i++;
 			assert(i < (unsigned int)argc);
-			input_file_path = argv[i];
+			input_pic_name = argv[i];
 		}
-		else if (strcmp(argv[i++], "-o") == 0 ||
-			strcmp(argv[i++], "--output") == 0)
+		else if (argv[i][0] != '-')
 		{
-			assert(i < (unsigned int)argc);
-			output_file_path = argv[i];
-		}
-		else if (strcmp(argv[i++], "--target") == 0)
-		{
-			assert(i < (unsigned int)argc);
-			target_file_path = argv[i];
-		}
-		else if (strcmp(argv[i++], "--trace") == 0)
-		{
-			assert(i < (unsigned int)argc);
-			trace_file_path = argv[i];
-		}
-		else if (strcmp(argv[i++], "--error") == 0)
-		{
-			assert(i < (unsigned int)argc);
-			error_file_path = argv[i];
+			if (input_pic_name == NULL)
+			{
+				input_pic_name = argv[i];
+			}
 		}
 	}
 
 	pg_t input;
-	pg_init_blue_circles(&input);
-	//pg_init_bird(&input);
+	if (input_pic_name == NULL)
+	{
+		pg_init_circles(&input, (pixel_t){0, 0, 0, 255});
+	}
+	else
+	{
+		pg_init_pic_name(&input, input_pic_name);
+		pg_grayscalize(input);
+	}
 
+	pixel_t line_colorset[] = {
+		{0, 0, 0, 255}, 
+		//{128, 128, 128, 255}
+	};
+
+	unsigned int pin_number = 1024;
+
+	stringart_mem_t mem = {
+		.algo = {
+			.final_line_number_max = 1024 * 1,
+			.line_data_pool_len_max = 512,
+			.line_pool_generator = linepoolgen_iter_random,
+			.line_score_computer = linescorecomp_error_new,
+			.winning_line_handler = winlinehand_draw_erase_log_print,
+			.halt_on_average_grayscale_crossing = 1,
+		},
+		.input = {
+			.input = input,
+			.line_colorset = line_colorset,
+			.line_colorset_len =
+				(sizeof line_colorset) / (sizeof line_colorset[0]),
+			.pinset = {.w = input.w, .h = input.h, .pin_number = pin_number},
+			.rg_seed = 0, /* Uses timestamp. */
+		}
+	};
+
+	clock_t clock_start = clock();
+
+	stringart_perform_algo(&mem);
+
+	clock_t clock_end = clock();
+	float time_taken =
+		(float)(clock_end - clock_start) / (float)CLOCKS_PER_SEC;
+	printf("Done in %f sec\n", time_taken);
+
+	output_pg_as_bitmap(mem.input.input, "input.bmp");
+	output_pg_as_bitmap(mem.state.canvas, "output.bmp");
+	output_pg_as_bitmap(mem.state.target, "target.bmp");
+	output_pg_as_bitmap(mem.logdata.trace, "trace.bmp");
+
+	FILE* data_log_file = fopen("data_log", "w");
+
+	fprintf(data_log_file, "%f\n",
+		mem.logdata.input_average_grayscale);
+	
+	fprintf(data_log_file, "\n");
+	for (unsigned int i = 0; i < mem.state.iteration; i++)
+	{
+		fprintf(data_log_file, "%f %f %f %f\n",
+			mem.logdata.error_delta_array[i],
+			mem.logdata.error_new_array[i],
+			mem.logdata.average_grayscale_array[i],
+			mem.logdata.error_cavnas_input_array[i]);
+	}
+
+	fclose(data_log_file);
+
+	#if 0
 	pg_t target;
 	pg_init_copy(&target, input);
 
@@ -193,30 +369,51 @@ int main(int argc, const char** argv)
 	rg_t rg;
 	rg_time_seed(&rg);
 
-	unsigned int line_number = 512;
-	float error_array[line_number];
+	unsigned int line_number = 5000;
+	float error_delta_array[line_number];
+	float error_new_array[line_number];
+	float average_grayscale_array[line_number];
 
 	clock_t clock_start = clock();
 
-	string_art_01(pinset, canvas, target, trace, &rg,
-		error_array, line_number);
+	//string_art_01(pinset, canvas, target, trace, &rg,
+	//	error_delta_array, line_number);
+	string_art_02(pinset, canvas, target, trace, &rg, line_number,
+		error_delta_array, error_new_array,
+		average_grayscale_array);
 
 	clock_t clock_end = clock();
 	float time_taken =
 		(float)(clock_end - clock_start) / (float)CLOCKS_PER_SEC;
 	printf("Time taken: %f sec\n", time_taken);
 
-	output_pg_as_bitmap(input, input_file_path);
-	output_pg_as_bitmap(canvas, output_file_path);
-	output_pg_as_bitmap(target, target_file_path);
-	output_pg_as_bitmap(trace, trace_file_path);
+	const char* gen_input_file_path = "input.bmp";
+	const char* gen_output_file_path = "output.bmp";
+	const char* gen_target_file_path = "target.bmp";
+	const char* gen_trace_file_path = "trace.bmp";
+	const char* gen_data_log_file_path = "data_log";
 
-	FILE* error_file = fopen(error_file_path, "w");
+	output_pg_as_bitmap(input, gen_input_file_path);
+	output_pg_as_bitmap(canvas, gen_output_file_path);
+	output_pg_as_bitmap(target, gen_target_file_path);
+	output_pg_as_bitmap(trace, gen_trace_file_path);
+
+	FILE* data_log_file = fopen(gen_data_log_file_path, "w");
+
+	float input_average_grayscale = pg_average_grayscale_in_disc(input);
+
+	fprintf(data_log_file, "%f\n",
+		input_average_grayscale);
+	fprintf(data_log_file, "\n");
 	for (unsigned int i = 0; i < line_number; i++)
 	{
-		fprintf(error_file, "%f\n", error_array[i]);
+		fprintf(data_log_file, "%f %f %f\n",
+			error_delta_array[i], error_new_array[i],
+			average_grayscale_array[i]);
 	}
-	fclose(error_file);
+
+	fclose(data_log_file);
+	#endif
 
 	return 0;
 }
