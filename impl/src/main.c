@@ -306,12 +306,12 @@ int main(int argc, const char** argv)
 
 	stringart_mem_t mem = {
 		.algo = {
-			.final_line_number_max = 1024 * 1,
+			.final_line_number_max = 1024 * 3,
 			.line_data_pool_len_max = 512,
-			.line_pool_generator = linepoolgen_iter_random,
+			.line_pool_generator = linepoolgen_random,
 			.line_score_computer = linescorecomp_error_new,
 			.winning_line_handler = winlinehand_draw_erase_log_print,
-			.halt_on_average_grayscale_crossing = 1,
+			.halt_on_average_grayscale_crossing = 0,
 		},
 		.input = {
 			.input = input,
