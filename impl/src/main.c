@@ -72,8 +72,10 @@ int main(int argc, const char** argv)
 			.line_colorset = line_colorset,
 			.line_colorset_len =
 				(sizeof line_colorset) / (sizeof line_colorset[0]),
+			.line_color_target_average = 1,
 			.pinset = {.w = input.w, .h = input.h, .pin_number = pin_number},
 			.hd_sd_ratio = 3,
+			.output_every_n_iterations = 100,
 			.rg_seed = 0, /* Uses timestamp. */
 		}
 	};

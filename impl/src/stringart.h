@@ -45,8 +45,10 @@ struct stringart_input_t
 	pinset_t pinset;
 	unsigned int line_colorset_len;
 	pixel_t* line_colorset;
+	int line_color_target_average;
 	pg_t input;
 	unsigned int hd_sd_ratio;
+	unsigned int output_every_n_iterations;
 	uint32_t rg_seed;
 };
 typedef struct stringart_input_t stringart_input_t;

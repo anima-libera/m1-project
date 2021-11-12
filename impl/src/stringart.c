@@ -6,6 +6,7 @@
 #include "plotter.h"
 #include "random.h"
 #include "utils.h"
+#include "bmp.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
@@ -146,7 +147,7 @@ void stringart_perform_algo(stringart_mem_t* mem)
 		float error_sq_cavnas_input =
 			pg_error_in_disc(mem->input.input, mem->state.canvas, 1);
 
-		printf("%5d / %d  % .5f %.5f % .5f %.5f  %6.1f   %.5f|%.5f / %.5f   %.5f %.5f\n",
+		printf("%5d / %d  % .5f %.5f % .5f %.5f  %6.1f   %.5f|%.5f / %.5f   %.5f %.5f",
 			mem->state.iteration+1,
 			mem->algo.final_line_number_max,
 			winning_line_data->error_delta,
@@ -178,6 +179,18 @@ void stringart_perform_algo(stringart_mem_t* mem)
 			error_cavnas_input;
 		mem->logdata.error_sq_cavnas_input_array[mem->state.iteration] =
 			error_sq_cavnas_input;
+
+		if (mem->input.output_every_n_iterations != 0 &&
+			mem->state.iteration % mem->input.output_every_n_iterations == 0 &&
+			mem->state.iteration != 0)
+		{
+			char output_name[99];
+			sprintf(output_name, "iter%04d_output_hd.bmp", mem->state.iteration);
+			output_pg_as_bitmap(mem->state.canvas_hd, output_name);
+			printf("  (output HD)");
+		}
+
+		printf("\n");
 
 		if (mem->algo.halt_on_average_grayscale_crossing &&
 			canvas_average_grayscale > mem->logdata.input_average_grayscale)
@@ -319,15 +332,46 @@ static void line_data_compute_delta_and_new(stringart_mem_t* mem,
 	free(pm_da_sd.arr);
 }
 
+static void pick_line_color(stringart_mem_t* mem, line_t* line)
+{
+	if (mem->input.line_color_target_average)
+	{
+		pm_da_t pm_da = {0};
+		line_mid_point(plotter_pm_da, &pm_da, *line);
+
+		unsigned int sum_r = 0, sum_g = 0, sum_b = 0;
+		for (unsigned int i = 0; i < pm_da.len; i++)
+		{
+			pm_t pm = pm_da.arr[i];
+			pixel_t pixel = mem->input.input.pixel_grid[pm.y * mem->input.input.w + pm.x];
+			sum_r += pixel.r;
+			sum_g += pixel.g;
+			sum_b += pixel.b;
+		}
+
+		line->color.r = (float)sum_r / (float)pm_da.len;
+		line->color.g = (float)sum_g / (float)pm_da.len;
+		line->color.b = (float)sum_b / (float)pm_da.len;
+	}
+	else
+	{
+		unsigned int color_index = rg_int(&mem->state.rg,
+			0, mem->input.line_colorset_len-1);
+		line->color = mem->input.line_colorset[color_index];
+	}
+}
+
 unsigned int linepoolgen_random(stringart_mem_t* mem,
 	line_data_t* line_data_pool, unsigned int line_data_pool_len)
 {
 	for (unsigned int i = 0; i < line_data_pool_len; i++)
 	{
 		line_t line;
+		#if 0
 		unsigned int color_index = rg_int(&mem->state.rg,
 			0, mem->input.line_colorset_len-1);
 		line.color = mem->input.line_colorset[color_index];
+		#endif
 		int pin_a = rg_int(&mem->state.rg,
 			0, mem->input.pinset.pin_number-1);
 		pinset_get_pin_pos(mem->input.pinset, pin_a, &line.xa, &line.ya);
@@ -342,6 +386,7 @@ unsigned int linepoolgen_random(stringart_mem_t* mem,
 				break;
 			}
 		}
+		pick_line_color(mem, &line);
 		line_data_pool[i].line = line;
 		line_data_pool[i].pin_a = pin_a;
 		line_data_pool[i].pin_b = pin_b;
@@ -362,9 +407,11 @@ unsigned int linepoolgen_iter_random(stringart_mem_t* mem,
 	for (unsigned int i = 0; i < line_data_pool_len; i++)
 	{
 		line_t line;
+		#if 0
 		unsigned int color_index = rg_int(&mem->state.rg,
 			0, mem->input.line_colorset_len-1);
 		line.color = mem->input.line_colorset[color_index];
+		#endif
 		pinset_get_pin_pos(mem->input.pinset, pin_a, &line.xa, &line.ya);
 		int pin_b;
 		while (1)
@@ -377,6 +424,7 @@ unsigned int linepoolgen_iter_random(stringart_mem_t* mem,
 				break;
 			}
 		}
+		pick_line_color(mem, &line);
 		line_data_pool[i].line = line;
 		line_data_pool[i].pin_a = pin_a;
 		line_data_pool[i].pin_b = pin_b;
@@ -491,8 +539,7 @@ static int winlinehand_generic(stringart_mem_t* mem,
 	line_sd_to_hd(mem, line_sd, &line_hd);
 
 	pm_da_t pm_da_hd = {0};
-	line_mid_point(plotter_pm_da, &pm_da_hd,
-		line_hd);
+	line_mid_point(plotter_pm_da, &pm_da_hd, line_hd);
 	plot_pm_da(mem->state.canvas_hd, pm_da_hd);
 
 	pm_da_t pm_da_sd = {0};

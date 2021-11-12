@@ -62,33 +62,38 @@ title = "Canvas evolution over iterations"
 
 plot_count = 5
 
-plt.subplot(plot_count, 1, 1)
+i = 1
+plt.subplot(plot_count, 1, i); i += 1
 plt.plot(x_array, error_sq_delta_array, "blue")
 plt.plot(x_array, error_delta_array, "red")
 plt.title(title)
 plt.ylabel("Err delta")
 
-plt.subplot(plot_count, 1, 2)
+plt.subplot(plot_count, 1, i); i += 1
 plt.plot(x_array, error_sq_new_array, "blue")
 plt.plot(x_array, error_new_array, "green")
 plt.ylabel("Err new")
 
-plt.subplot(plot_count, 1, 3)
+plt.subplot(plot_count, 1, i); i += 1
 plt.plot(x_array, line_minimal_radius_array, "orange")
 plt.ylabel("Min radius")
 
-plt.subplot(plot_count, 1, 4)
+plt.subplot(plot_count, 1, i); i += 1
 plt.plot(x_array, average_grayscale_array, "black")
 plt.plot(x_array, average_grayscale_hd_array, "gray")
-plt.plot(*average_grayscale_crossing, marker="o", markersize=6, markerfacecolor="red")
+plt.plot(*average_grayscale_crossing,
+	marker = "o", markersize = 6, markerfacecolor = "black", markeredgecolor = "green")
+plt.plot(*average_grayscale_hd_crossing,
+	marker = "o", markersize = 6, markerfacecolor = "gray", markeredgecolor = "green")
 plt.ylabel("Avg grayscale")
 
-plt.subplot(plot_count, 1, 5)
+plt.subplot(plot_count, 1, i); i += 1
 plt.plot(x_array, error_sq_cavnas_input_array, "blue")
 plt.plot(x_array, error_cavnas_input_array, "purple")
 plt.ylabel("Err can-inp")
 
 plt.xlabel("Iterations")
+assert i == plot_count+1
 
 fig = plt.gcf()
 fig.set_size_inches(8, 8)
