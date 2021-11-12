@@ -14,8 +14,13 @@ else:
 
 error_delta_array = []
 error_new_array = []
+error_sq_delta_array = []
+error_sq_new_array = []
+line_minimal_radius_array = []
 average_grayscale_array = []
+average_grayscale_hd_array = []
 error_cavnas_input_array = []
+error_sq_cavnas_input_array = []
 
 with open(data_log_filepath, "r") as data_log:
 	lines = list(map(str.rstrip, data_log.readlines()))
@@ -28,15 +33,16 @@ with open(data_log_filepath, "r") as data_log:
 	for line in lines[2:]:
 		iter_data = line.split(" ")
 
-		error_delta = float(iter_data[0])
-		error_new = float(iter_data[1])
-		average_grayscale = float(iter_data[2])
-		error_cavnas_input = float(iter_data[3])
-
-		error_delta_array.append(error_delta)
-		error_new_array.append(error_new)
-		average_grayscale_array.append(average_grayscale)
-		error_cavnas_input_array.append(error_cavnas_input)
+		i = 0
+		error_delta_array.append(float(iter_data[i])); i += 1
+		error_new_array.append(float(iter_data[i])); i += 1
+		error_sq_delta_array.append(float(iter_data[i])); i += 1
+		error_sq_new_array.append(float(iter_data[i])); i += 1
+		line_minimal_radius_array.append(float(iter_data[i])); i += 1
+		average_grayscale_array.append(float(iter_data[i])); i += 1
+		average_grayscale_hd_array.append(float(iter_data[i])); i += 1
+		error_cavnas_input_array.append(float(iter_data[i])); i += 1
+		error_sq_cavnas_input_array.append(float(iter_data[i])); i += 1
 
 x_array = list(range(1, len(error_delta_array)+1))
 
@@ -46,25 +52,41 @@ for x, av_gray in zip(x_array, average_grayscale_array):
 		average_grayscale_crossing = (x, av_gray)
 		break
 
+average_grayscale_hd_crossing = (len(error_delta_array), input_average_grayscale)
+for x, av_gray_hd in zip(x_array, average_grayscale_hd_array):
+	if av_gray_hd > input_average_grayscale:
+		average_grayscale_hd_crossing = (x, av_gray_hd)
+		break
+
 title = "Canvas evolution over iterations"
 
-plt.subplot(4, 1, 1)
+plot_count = 5
+
+plt.subplot(plot_count, 1, 1)
+plt.plot(x_array, error_sq_delta_array, "blue")
 plt.plot(x_array, error_delta_array, "red")
 plt.title(title)
-plt.ylabel("Error delta")
+plt.ylabel("Err delta")
 
-plt.subplot(4, 1, 2)
+plt.subplot(plot_count, 1, 2)
+plt.plot(x_array, error_sq_new_array, "blue")
 plt.plot(x_array, error_new_array, "green")
-plt.ylabel("Error new")
+plt.ylabel("Err new")
 
-plt.subplot(4, 1, 3)
-plt.plot(x_array, average_grayscale_array, "blue")
+plt.subplot(plot_count, 1, 3)
+plt.plot(x_array, line_minimal_radius_array, "orange")
+plt.ylabel("Min radius")
+
+plt.subplot(plot_count, 1, 4)
+plt.plot(x_array, average_grayscale_array, "black")
+plt.plot(x_array, average_grayscale_hd_array, "gray")
 plt.plot(*average_grayscale_crossing, marker="o", markersize=6, markerfacecolor="red")
-plt.ylabel("Average grayscale")
+plt.ylabel("Avg grayscale")
 
-plt.subplot(4, 1, 4)
+plt.subplot(plot_count, 1, 5)
+plt.plot(x_array, error_sq_cavnas_input_array, "blue")
 plt.plot(x_array, error_cavnas_input_array, "purple")
-plt.ylabel("Error canvas-input")
+plt.ylabel("Err can-inp")
 
 plt.xlabel("Iterations")
 
