@@ -78,24 +78,17 @@ void stringart_perform_algo(stringart_mem_t* mem)
 	pg_init_copy(&mem->logdata.trace, mem->state.canvas);
 	mem->logdata.input_average_grayscale =
 		pg_average_grayscale_in_disc(mem->input.input);
-	mem->logdata.error_delta_array =
-		malloc(mem->algo.final_line_number_max * sizeof(float));
-	mem->logdata.error_new_array =
-		malloc(mem->algo.final_line_number_max * sizeof(float));
-	mem->logdata.error_sq_delta_array =
-		malloc(mem->algo.final_line_number_max * sizeof(float));
-	mem->logdata.error_sq_new_array =
-		malloc(mem->algo.final_line_number_max * sizeof(float));
-	mem->logdata.line_minimal_radius_array =
-		malloc(mem->algo.final_line_number_max * sizeof(float));
-	mem->logdata.average_grayscale_array =
-		malloc(mem->algo.final_line_number_max * sizeof(float));
-	mem->logdata.average_grayscale_hd_array =
-		malloc(mem->algo.final_line_number_max * sizeof(float));
-	mem->logdata.error_cavnas_input_array =
-		malloc(mem->algo.final_line_number_max * sizeof(float));
-	mem->logdata.error_sq_cavnas_input_array =
-		malloc(mem->algo.final_line_number_max * sizeof(float));
+	#define MALLOC() malloc(mem->algo.final_line_number_max * sizeof(float))
+	mem->logdata.error_delta_array = MALLOC();
+	mem->logdata.error_new_array = MALLOC();
+	mem->logdata.error_sq_delta_array = MALLOC();
+	mem->logdata.error_sq_new_array = MALLOC();
+	mem->logdata.line_minimal_radius_array = MALLOC();
+	mem->logdata.average_grayscale_array = MALLOC();
+	mem->logdata.average_grayscale_hd_array = MALLOC();
+	mem->logdata.error_cavnas_input_array = MALLOC();
+	mem->logdata.error_sq_cavnas_input_array = MALLOC();
+	#undef MALLOC
 	
 	line_data_t line_data_pool[mem->algo.line_data_pool_len_max];
 	int running = 1;
@@ -161,32 +154,27 @@ void stringart_perform_algo(stringart_mem_t* mem)
 			error_cavnas_input,
 			error_sq_cavnas_input);
 
-		mem->logdata.error_delta_array[mem->state.iteration] =
-			winning_line_data->error_delta;
-		mem->logdata.error_new_array[mem->state.iteration] =
-			winning_line_data->error_new;
-		mem->logdata.error_sq_delta_array[mem->state.iteration] =
-			winning_line_data->error_sq_delta;
-		mem->logdata.error_sq_new_array[mem->state.iteration] =
-			winning_line_data->error_sq_new;
-		mem->logdata.line_minimal_radius_array[mem->state.iteration] =
-			winning_line_minimal_radius;
-		mem->logdata.average_grayscale_array[mem->state.iteration] =
-			canvas_average_grayscale;
-		mem->logdata.average_grayscale_hd_array[mem->state.iteration] =
-			canvas_hd_average_grayscale;
-		mem->logdata.error_cavnas_input_array[mem->state.iteration] =
-			error_cavnas_input;
-		mem->logdata.error_sq_cavnas_input_array[mem->state.iteration] =
-			error_sq_cavnas_input;
+		#define I mem->state.iteration
+		mem->logdata.error_delta_array[I] = winning_line_data->error_delta;
+		mem->logdata.error_new_array[I] = winning_line_data->error_new;
+		mem->logdata.error_sq_delta_array[I] = winning_line_data->error_sq_delta;
+		mem->logdata.error_sq_new_array[I] = winning_line_data->error_sq_new;
+		mem->logdata.line_minimal_radius_array[I] = winning_line_minimal_radius;
+		mem->logdata.average_grayscale_array[I] = canvas_average_grayscale;
+		mem->logdata.average_grayscale_hd_array[I] = canvas_hd_average_grayscale;
+		mem->logdata.error_cavnas_input_array[I] = error_cavnas_input;
+		mem->logdata.error_sq_cavnas_input_array[I] = error_sq_cavnas_input;
+		#undef I
 
 		if (mem->input.output_every_n_iterations != 0 &&
 			mem->state.iteration % mem->input.output_every_n_iterations == 0 &&
 			mem->state.iteration != 0)
 		{
 			char output_name[99];
-			sprintf(output_name, "iter%04d_output_hd.bmp", mem->state.iteration);
-			output_pg_as_bitmap(mem->state.canvas_hd, output_name);
+			sprintf(output_name, "output_hd_iter%05d.bmp", mem->state.iteration);
+			char* file_path = filepath_join(mem->input.output_directory_path, output_name);
+			output_pg_as_bitmap(mem->state.canvas_hd, file_path);
+			free(file_path);
 			printf("  (output HD)");
 		}
 
@@ -253,8 +241,11 @@ static void line_pm_da_hd_to_sd(stringart_mem_t* mem,
 		{
 			DA_LENGTHEN(++pm_da_sd->len, pm_da_sd->cap, pm_da_sd->arr, pm_t);
 			pm_sd = &pm_da_sd->arr[pm_da_sd->len-1];
-			*pm_sd = (pm_t){.x = x_sd, .y = y_sd, .a = 0};
+			*pm_sd = (pm_t){.x = x_sd, .y = y_sd};
 		}
+
+		//fprintf(stderr, "in: %d %d %d (alpha %d) ", pm_hd.r, pm_hd.g, pm_hd.b, pm_hd.a);
+		//fprintf(stderr, "on: %d %d %d (alpha %d) ", pm_sd->r, pm_sd->g, pm_sd->b, pm_sd->a);
 
 		float sd_pixel_hd_size = mem->input.hd_sd_ratio * mem->input.hd_sd_ratio;
 		float alpha_total = pm_sd->a + (float)pm_hd.a / sd_pixel_hd_size;
@@ -267,6 +258,8 @@ static void line_pm_da_hd_to_sd(stringart_mem_t* mem,
 		CHANNEL(b);
 		#undef CHANNEL
 		pm_sd->a += (float)pm_hd.a / sd_pixel_hd_size;
+
+		//fprintf(stderr, "out: %d %d %d (alpha %d)\n", pm_sd->r, pm_sd->g, pm_sd->b, pm_sd->a);
 	}
 }
 
@@ -461,7 +454,7 @@ float linescorecomp_error_sq_delta(stringart_mem_t* mem,
 	return -line_data->error_sq_delta;
 }
 
-static void plot_pm_da(pg_t pg, pm_da_t pm_da)
+static void plot_pm_da(pg_t pg, pm_da_t pm_da, int overwrite)
 {
 	for (unsigned int i = 0; i < pm_da.len; i++)
 	{
@@ -486,6 +479,10 @@ static void plot_pm_da(pg_t pg, pm_da_t pm_da)
 
 		float alpha_total = pixel->a + (float)pm.a;
 		float alpha_ratio = (float)pixel->a / alpha_total;
+		if (overwrite)
+		{
+			alpha_ratio = 1.0f - (float)pm.a / 255.0f;
+		}
 		
 		#define CHANNEL(c_) \
 			pixel->c_ = (float)pixel->c_ * alpha_ratio + (float)pm.c_ * (1.0f - alpha_ratio)
@@ -493,7 +490,10 @@ static void plot_pm_da(pg_t pg, pm_da_t pm_da)
 		CHANNEL(g);
 		CHANNEL(b);
 		#undef CHANNEL
-		pixel->a += pm.a;
+		if (!overwrite)
+		{
+			pixel->a += pm.a;
+		}
 	}
 }
 
@@ -540,11 +540,11 @@ static int winlinehand_generic(stringart_mem_t* mem,
 
 	pm_da_t pm_da_hd = {0};
 	line_mid_point(plotter_pm_da, &pm_da_hd, line_hd);
-	plot_pm_da(mem->state.canvas_hd, pm_da_hd);
+	plot_pm_da(mem->state.canvas_hd, pm_da_hd, 1);
 
 	pm_da_t pm_da_sd = {0};
 	line_pm_da_hd_to_sd(mem, pm_da_hd, &pm_da_sd);
-	plot_pm_da(mem->state.canvas, pm_da_sd);
+	plot_pm_da(mem->state.canvas, pm_da_sd, 0);
 
 	if (erase_on_target)
 	{

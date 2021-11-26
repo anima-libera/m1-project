@@ -119,14 +119,16 @@ void pg_init_pic(pg_t* pg,
 {
 	printf("Reading dimensions from %s\n", filepath_dim);
 	FILE* file_dim = fopen(filepath_dim, "r");
-	fscanf(file_dim, "%u %u", &pg->w, &pg->h);
+	int discard = fscanf(file_dim, "%u %u", &pg->w, &pg->h);
+	(void)discard;
 	fclose(file_dim);
 
 	printf("Reading raw pixel data from %s\n", filepath_raw);
 	unsigned int buffer_size = pg->w * pg->h * sizeof(pixel_t);
 	pg->pixel_grid = malloc(buffer_size);
 	FILE* file_raw = fopen(filepath_raw, "rb");
-	fread(pg->pixel_grid, buffer_size, 1, file_raw);
+	discard = fread(pg->pixel_grid, buffer_size, 1, file_raw);
+	(void)discard;
 	fclose(file_raw);
 }
 

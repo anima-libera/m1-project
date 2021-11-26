@@ -35,6 +35,7 @@ else:
 if option_launch:
 	options = sys.argv[1:i+1]
 	launch_args = sys.argv[i+2:]
+	
 else:
 	options = sys.argv[1:]
 
@@ -116,8 +117,12 @@ if option_launch and build_exit_status == 0:
 	if bin_dir_name != ".":
 		os.chdir("..")
 	if launch_exit_status != 0:
-		print_blue("exit status {}".format(launch_exit_status))
+		print_blue(f"exit status {format(launch_exit_status)}")
 	else:
 		import other.plot
-		other.plot.plot_to_file(
-			os.path.join(bin_dir_name, "data_log.png"))
+		other.plot.plot_to_file(bin_dir_name, "last_output_directory")
+		filepath_to_lod = os.path.join(bin_dir_name, "last_output_directory")
+		lod = open(filepath_to_lod, "r").read().strip()
+		full_lod = os.path.join(bin_dir_name, lod)
+		print_blue(f"output is in {full_lod}")
+		os.remove(filepath_to_lod)

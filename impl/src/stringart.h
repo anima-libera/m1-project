@@ -48,8 +48,9 @@ struct stringart_input_t
 	int line_color_target_average;
 	pg_t input;
 	unsigned int hd_sd_ratio;
-	unsigned int output_every_n_iterations;
 	uint32_t rg_seed;
+	unsigned int output_every_n_iterations;
+	const char* output_directory_path;
 };
 typedef struct stringart_input_t stringart_input_t;
 

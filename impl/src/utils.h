@@ -46,4 +46,6 @@ unsigned int umax(unsigned int a, unsigned int b);
 		} \
 	} while (0)
 
+char* filepath_join(const char* left, const char* right);
+
 #endif /* HEADER_UTILS_ */
