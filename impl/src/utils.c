@@ -34,6 +34,7 @@ unsigned int umax(unsigned int a, unsigned int b)
 	return a > b ? a : b;
 }
 
+#if 0
 char* filepath_join(const char* left, const char* right)
 {
 	int file_path_len = 99;
@@ -48,3 +49,4 @@ char* filepath_join(const char* left, const char* right)
 	}
 	return file_path;
 }
+#endif

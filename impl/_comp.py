@@ -118,7 +118,7 @@ if option_launch and build_exit_status == 0:
 		os.chdir("..")
 	if launch_exit_status != 0:
 		print_blue(f"exit status {format(launch_exit_status)}")
-	else:
+	elif False:
 		import other.plot
 		other.plot.plot_to_file(bin_dir_name, "last_output_directory")
 		filepath_to_lod = os.path.join(bin_dir_name, "last_output_directory")

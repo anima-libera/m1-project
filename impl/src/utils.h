@@ -9,6 +9,8 @@
 
 #define TAU 6.28318530717
 
+#define SWAP(type_, a_, b_) do { type_ tmp = a_; a_ = b_; b_ = tmp; } while (0)
+
 float square(float x);
 
 float dist(float xa, float ya, float xb, float yb);
@@ -46,6 +48,8 @@ unsigned int umax(unsigned int a, unsigned int b);
 		} \
 	} while (0)
 
+#if 0
 char* filepath_join(const char* left, const char* right);
+#endif
 
 #endif /* HEADER_UTILS_ */
