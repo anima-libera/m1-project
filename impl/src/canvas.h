@@ -13,9 +13,19 @@
 	struct canvas_type_ \
 	{ \
 		unsigned int resolution; /* The number of pixels on a side. */ \
-		element_type_* grid; \
+		element_type_* grid; /* Row major, index = x + resolution * y. */ \
 	}; \
 	typedef struct canvas_type_ canvas_type_; \
+	\
+	/* Returns the allocated canvas of the given resolution willed with garbage memory. */ \
+	canvas_type_ function_prefix_##_init(unsigned int resolution); \
+	\
+	/* Returns the allocated canvas of the given resolution filled with the given value. */ \
+	canvas_type_ function_prefix_##_init_fill(unsigned int resolution, \
+		element_type_ filling_elem); \
+	\
+	/* Returns an allocated copy of the given canvas. */ \
+	canvas_type_ function_prefix_##_copy(canvas_type_ canvas); \
 	\
 	/* Are the given coords in the canvas even after converting to coords_grid ? */ \
 	int function_prefix_##_is_in_bounds(canvas_type_ canvas, coords_t coords); \
@@ -31,9 +41,19 @@
 DECLARE_CANVAS(canvas_gs_op_t, canvas_gs_op, gs_op_t);
 DECLARE_CANVAS(canvas_float_t, canvas_float, float);
 
+/* Returns an allocated copy of the given canvas,
+ * now with explicit opacity initialized at 1.0f. */
+canvas_gs_op_t canvas_float_to_gs_op(canvas_float_t canvas);
+
+/* Returns an allocated copy of the given canvas,
+ * using the given background grayscale color to guarentee full opacity. */
+canvas_float_t canvas_gs_op_to_float(canvas_gs_op_t canvas, float background_gs);
+
+/* Draws the given line on the given canvas, using the given line drawing algorithm. */
 void canvas_gs_op_draw_line_coords(canvas_gs_op_t canvas, line_coords_t line,
 	line_plot_algorithm_t line_algorithm);
 
+/* Draws the given line on the given canvas. */
 void canvas_gs_op_draw_line_pixels(canvas_gs_op_t canvas, line_pixels_t line);
 
 /* Outputs the given canvas as a bitmap image file at the given path.

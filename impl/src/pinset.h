@@ -12,5 +12,6 @@ struct pinset_t
 typedef struct pinset_t pinset_t;
 
 pinset_t pinset_generate_circle(unsigned int pin_number);
+pinset_t pinset_generate_square(unsigned int pin_number);
 
 #endif /* HEADER_PINSET_ */

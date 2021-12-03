@@ -10,6 +10,11 @@ gs_op_t gs_op_combine(gs_op_t bottom, gs_op_t top)
 	return result;
 }
 
+float gs_op_combine_background(float background_gs, gs_op_t color)
+{
+	return color.gs * color.op + background_gs * (1.0f - color.op);
+}
+
 coords_grid_t coords_to_coords_grid(coords_t coords, unsigned int resolution)
 {
 	return (coords_grid_t){

@@ -13,6 +13,11 @@ typedef struct gs_op_t gs_op_t;
 /* Returns the color obtained when painting the given top color on the given bottom color. */
 gs_op_t gs_op_combine(gs_op_t bottom, gs_op_t top);
 
+/* Returns the grayscale color obtained when looking at the given color
+ * with an opaque background of the given grayscale color behind it.
+ * Like gs_op_combine, but with bottom being fully opaque. */
+float gs_op_combine_background(float background_gs, gs_op_t color);
+
 /* Coordinates of a point on all the possible square canvases, regardless of their resolutions.
  * Should be used every time it is possible. */
 struct coords_t
