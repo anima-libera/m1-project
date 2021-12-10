@@ -63,7 +63,6 @@ static float error_delta_line(canvas_float_t target_canvas, canvas_gs_op_t curre
 }
 
 /* TODO: error_delta_line_self is a temporary workaround, make error_delta_line somehow generic */
-
 static float error_delta_line_self(canvas_gs_op_t current_canvas,
 	float current_canvas_background_gs,
 	line_pixels_t line, error_formula_t error_formula)
@@ -84,13 +83,36 @@ static float error_delta_line_self(canvas_gs_op_t current_canvas,
 	return error_delta_acc;
 }
 
+/* Returns the average grayscale color of the target canvas pixels
+ * that would be covered by drawing the given line. */
+static float average_gs_target_line(canvas_float_t target_canvas, line_pixels_t line,
+	canvas_float_t importance_canvas)
+{
+	assert(target_canvas.resolution == line.resolution);
+	assert(importance_canvas.resolution == line.resolution);
+	const unsigned int resolution = line.resolution;
+
+	float gs_acc = 0.0f;
+	float importance_sum = 0.0f;
+	for (unsigned int i = 0; i < line.pixel_count; i++) 
+	{
+		coords_grid_t coords_grid = coords_to_coords_grid(line.pixel_array[i].coords, resolution);
+		float importance = importance_canvas.grid[coords_grid.x + resolution * coords_grid.y];
+		gs_acc += importance * target_canvas.grid[coords_grid.x + resolution * coords_grid.y];
+		importance_sum += importance;
+	}
+	return gs_acc / importance_sum;
+}
+
 void perform_string_art(string_art_input_t input)
 {
 	assert(input.resolution_factor > 0);
-	const unsigned int resolution_sd = input.target_canvas.resolution;
-	const unsigned int resolution_hd = input.target_canvas.resolution * input.resolution_factor;
+	const unsigned int resolution_sd = input.input_canvas.resolution;
+	const unsigned int resolution_hd = input.input_canvas.resolution * input.resolution_factor;
 	
-	canvas_float_t target_canvas = input.target_canvas;
+	canvas_float_t importance_canvas = input.importance_canvas;
+	canvas_float_t target_canvas = input.input_canvas;
+	canvas_float_t target_erase_canvas = input.input_canvas;
 	canvas_gs_op_t current_canvas_sd = canvas_gs_op_init_fill(resolution_sd, (gs_op_t){.op = 0.0f});
 	canvas_gs_op_t current_canvas_hd = canvas_gs_op_init_fill(resolution_hd, (gs_op_t){.op = 0.0f});
 	const float current_canvas_background_gs = input.current_canvas_background_gs;
@@ -100,6 +122,9 @@ void perform_string_art(string_art_input_t input)
 		(assert(0), (error_formula_t)NULL);
 	pinset_t pinset = input.pinset;
 	const unsigned int iteration_max_number = input.iteration_max_number;
+
+	canvas_float_output_bmp(target_canvas, "A_target.bmp");
+	canvas_float_output_bmp(importance_canvas, "A_importance.bmp");
 
 	rg_t rg;
 	rg_time_seed(&rg);
@@ -153,11 +178,21 @@ void perform_string_art(string_art_input_t input)
 				current_canvas_background_gs,
 				line_pixels_sd, error_formula);
 
+			const float avg_gs_erase_target =
+				average_gs_target_line(target_canvas, line_pixels_sd, importance_canvas);
+
 			line_pixels_cleanup(line_pixels_hd);
 			line_pixels_cleanup(line_pixels_sd);
 
-			float score = -error_delta;// + delta_sd/3.0f;
-			score /= (float)line_pixels_sd.pixel_count;
+			float score;
+			switch (input.score_formula)
+			{
+				case SCORE_FORMULA_DIFF_AVG_GS_ERASE_TARGET:
+					score = fabsf(avg_gs_erase_target - current_canvas_background_gs);
+				break;
+			}
+			//float score = -error_delta;// + delta_sd/3.0f;
+			//score /= (float)line_pixels_sd.pixel_count;
 
 			if (score > best_score)
 			{
@@ -175,11 +210,22 @@ void perform_string_art(string_art_input_t input)
 		canvas_gs_op_draw_line_coords(current_canvas_hd, best_line, line_plot_pixels_mid_point);
 		canvas_gs_op_draw_line_coords(current_canvas_sd, best_line, line_plot_pixels_mid_point);
 
+		line_coords_t best_line_neg = best_line;
+		/* FIXME */
+		best_line_neg.color.gs = current_canvas_background_gs *
+			fabsf(best_line.color.gs - current_canvas_background_gs);
+		canvas_float_draw_line_coords(target_erase_canvas,
+			best_line_neg, line_plot_pixels_mid_point);
+
 		if (iteration_i % 100 == 0 && iteration_i != 0)
 		{
 			char file_name[99];
+
 			sprintf(file_name, "step_%04d.bmp", iteration_i);
-			canvas_gs_op_output_bmp(current_canvas_hd, 0.0f, file_name);
+			canvas_gs_op_output_bmp(current_canvas_hd, current_canvas_background_gs, file_name);
+
+			sprintf(file_name, "step_erase_%04d.bmp", iteration_i);
+			canvas_float_output_bmp(target_erase_canvas, file_name);
 		}
 
 		if (iteration_i % 20 == 0)
@@ -193,7 +239,7 @@ void perform_string_art(string_art_input_t input)
 		}
 	}
 
-	canvas_gs_op_output_bmp(current_canvas_hd, 0.0f, "canvas_hd.bmp");
-	canvas_gs_op_output_bmp(current_canvas_sd, 0.0f, "canvas_sd.bmp");
-	canvas_float_output_bmp(target_canvas, "target.bmp");
+	canvas_float_output_bmp(target_erase_canvas, "A_target_erase.bmp");
+	canvas_gs_op_output_bmp(current_canvas_hd, current_canvas_background_gs, "A_hd.bmp");
+	canvas_gs_op_output_bmp(current_canvas_sd, current_canvas_background_gs, "A_sd.bmp");
 }

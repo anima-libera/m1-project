@@ -25,8 +25,12 @@ coords_grid_t coords_to_coords_grid(coords_t coords, unsigned int resolution)
 
 coords_t coords_grid_to_coords(coords_grid_t coords_grid, unsigned int resolution)
 {
+	/* Note: The formula used for reversing coords_to_coords_grid was chosen in a way
+	 * that seem to maximize the number of resolutions that are good according to
+	 * is_good_resolution, i.e. in which every coodinate can be converted from
+	 * coords_grid_t to coords_t and then back to coords_grid_t without loss. */
 	return (coords_t){
-		.x = coords_grid.x / (float)(resolution - 1),
-		.y = coords_grid.y / (float)(resolution - 1),
+		.x = (float)coords_grid.x * (1.0f / (float)(resolution - 1)),
+		.y = (float)coords_grid.y * (1.0f / (float)(resolution - 1)),
 	};
 }

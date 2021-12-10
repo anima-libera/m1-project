@@ -21,13 +21,18 @@
 		return canvas; \
 	} \
 	\
+	void function_prefix_##_cleanup(canvas_type_ canvas) \
+	{ \
+		free(canvas.grid); \
+	} \
+	\
 	canvas_type_ function_prefix_##_init_fill(unsigned int resolution, \
-		element_type_ filling_elem) \
+		element_type_ filling_element) \
 	{ \
 		canvas_type_ canvas = function_prefix_##_init(resolution); \
 		for (unsigned int i = 0; i < resolution * resolution; i++) \
 		{ \
-			canvas.grid[i] = filling_elem; \
+			canvas.grid[i] = filling_element; \
 		} \
 		return canvas; \
 	} \
@@ -39,6 +44,47 @@
 		const unsigned int grid_linear_length = copy.resolution * copy.resolution; \
 		copy.grid = malloc(grid_linear_length * sizeof(element_type_)); \
 		memcpy(copy.grid, canvas.grid, grid_linear_length * sizeof(element_type_)); \
+		return copy; \
+	} \
+	\
+	canvas_type_ function_prefix_##_copy_upscale(canvas_type_ canvas_sd, \
+		unsigned int resolution_factor) \
+	{ \
+		canvas_type_ copy_hd; \
+		copy_hd.resolution = canvas_sd.resolution * resolution_factor; \
+		copy_hd.grid = malloc(copy_hd.resolution * copy_hd.resolution * sizeof(element_type_)); \
+		for (unsigned int y_hd = 0; y_hd < copy_hd.resolution; y_hd++) \
+		for (unsigned int x_hd = 0; x_hd < copy_hd.resolution; x_hd++) \
+		{ \
+			const unsigned int x_sd = x_hd / resolution_factor; \
+			const unsigned int y_sd = y_hd / resolution_factor; \
+			const element_type_ element_sd = canvas_sd.grid[x_sd + canvas_sd.resolution * y_sd]; \
+			copy_hd.grid[x_hd + copy_hd.resolution * y_hd] = element_sd; \
+		} \
+		return copy_hd; \
+	} \
+	\
+	canvas_type_ function_prefix_##_copy_expand(canvas_type_ canvas, \
+		unsigned int new_resolution, element_type_ filling_element) \
+	{ \
+		assert(new_resolution >= canvas.resolution); \
+		canvas_type_ copy; \
+		copy.resolution = new_resolution; \
+		copy.grid = malloc(copy.resolution * copy.resolution * sizeof(element_type_)); \
+		for (unsigned int y = 0; y < canvas.resolution; y++) \
+		{ \
+			memcpy(&copy.grid[copy.resolution * y], &canvas.grid[canvas.resolution * y], \
+				canvas.resolution * sizeof(element_type_)); \
+			for (unsigned int x = canvas.resolution; x < copy.resolution; x++) \
+			{ \
+				copy.grid[x + copy.resolution * y] = filling_element; \
+			} \
+		} \
+		for (unsigned int y = canvas.resolution; y < copy.resolution; y++) \
+		for (unsigned int x = canvas.resolution; x < copy.resolution; x++) \
+		{ \
+			copy.grid[x + copy.resolution * y] = filling_element; \
+		} \
 		return copy; \
 	} \
 	\
@@ -114,12 +160,36 @@ void canvas_gs_op_draw_line_pixels(canvas_gs_op_t canvas, line_pixels_t line)
 			const gs_op_t bottom = canvas_gs_op_get(canvas, pixel.coords);
 			canvas_gs_op_set(canvas, pixel.coords, gs_op_combine(bottom, pixel.color));
 		}
-		#if 0
+	}
+}
+
+/* Plotter used by the canvas_float_draw_line function. */
+static void canvas_float_draw_line_plotter(void* plot_data, pixel_line_t pixel)
+{
+	canvas_float_t canvas = *(canvas_float_t*)plot_data;
+	if (canvas_float_is_in_bounds(canvas, pixel.coords))
+	{
+		const float bottom = canvas_float_get(canvas, pixel.coords);
+		canvas_float_set(canvas, pixel.coords, gs_op_combine_background(bottom, pixel.color));
+	}
+}
+void canvas_float_draw_line_coords(canvas_float_t canvas, line_coords_t line,
+	line_plot_algorithm_t line_algorithm)
+{
+	line_algorithm(canvas_float_draw_line_plotter, &canvas, line, canvas.resolution);
+}
+
+void canvas_float_draw_line_pixels(canvas_float_t canvas, line_pixels_t line)
+{
+	assert(canvas.resolution == line.resolution);
+	for (unsigned int i = 0; i < line.pixel_count; i++)
+	{
 		pixel_line_t pixel = line.pixel_array[i];
-		coords_grid_t coords_grid = coords_to_coords_grid(pixel.coords, canvas.resolution);
-		gs_op_t* dst_color = &canvas.grid[coords_grid.x + canvas.resolution * coords_grid.y];
-		*dst_color = gs_op_combine(*dst_color, pixel.color);
-		#endif
+		if (canvas_float_is_in_bounds(canvas, pixel.coords))
+		{
+			const float bottom = canvas_float_get(canvas, pixel.coords);
+			canvas_float_set(canvas, pixel.coords, gs_op_combine_background(bottom, pixel.color));
+		}
 	}
 }
 

@@ -20,12 +20,23 @@
 	/* Returns the allocated canvas of the given resolution willed with garbage memory. */ \
 	canvas_type_ function_prefix_##_init(unsigned int resolution); \
 	\
+	/* Frees the allocated memory held by the given canvas. */ \
+	void function_prefix_##_cleanup(canvas_type_ canvas); \
+	\
 	/* Returns the allocated canvas of the given resolution filled with the given value. */ \
 	canvas_type_ function_prefix_##_init_fill(unsigned int resolution, \
-		element_type_ filling_elem); \
+		element_type_ filling_element); \
 	\
 	/* Returns an allocated copy of the given canvas. */ \
 	canvas_type_ function_prefix_##_copy(canvas_type_ canvas); \
+	\
+	/* Returns an allocated copy of the given canvas with a higher resolution. */ \
+	canvas_type_ function_prefix_##_copy_upscale(canvas_type_ canvas_sd, \
+		unsigned int resolution_factor); \
+	\
+	/* Returns an allocated copy of the given canvas with a margin. */ \
+	canvas_type_ function_prefix_##_copy_expand(canvas_type_ canvas, \
+		unsigned int new_resolution, element_type_ filling_element); \
 	\
 	/* Are the given coords in the canvas even after converting to coords_grid ? */ \
 	int function_prefix_##_is_in_bounds(canvas_type_ canvas, coords_t coords); \
@@ -44,7 +55,6 @@ DECLARE_CANVAS(canvas_float_t, canvas_float, float);
 /* Returns an allocated copy of the given canvas,
  * now with explicit opacity initialized at 1.0f. */
 canvas_gs_op_t canvas_float_to_gs_op(canvas_float_t canvas);
-
 /* Returns an allocated copy of the given canvas,
  * using the given background grayscale color to guarentee full opacity. */
 canvas_float_t canvas_gs_op_to_float(canvas_gs_op_t canvas, float background_gs);
@@ -52,16 +62,19 @@ canvas_float_t canvas_gs_op_to_float(canvas_gs_op_t canvas, float background_gs)
 /* Draws the given line on the given canvas, using the given line drawing algorithm. */
 void canvas_gs_op_draw_line_coords(canvas_gs_op_t canvas, line_coords_t line,
 	line_plot_algorithm_t line_algorithm);
-
 /* Draws the given line on the given canvas. */
 void canvas_gs_op_draw_line_pixels(canvas_gs_op_t canvas, line_pixels_t line);
+/* Draws the given line on the given canvas, using the given line drawing algorithm. */
+void canvas_float_draw_line_coords(canvas_float_t canvas, line_coords_t line,
+	line_plot_algorithm_t line_algorithm);
+/* Draws the given line on the given canvas. */
+void canvas_float_draw_line_pixels(canvas_float_t canvas, line_pixels_t line);
 
 /* Outputs the given canvas as a bitmap image file at the given path.
  * The transparent areas let see a fully opaque background filled with
  * the given background grayscale. */
 void canvas_gs_op_output_bmp(canvas_gs_op_t canvas, float background_gs,
 	const char* output_file_path);
-
 /* Outputs the given canvas as a bitmap image file at the given path. */
 void canvas_float_output_bmp(canvas_float_t canvas, const char* output_file_path);
 
