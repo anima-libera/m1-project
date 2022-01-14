@@ -147,12 +147,14 @@ int main(int argc, const char** argv)
 		.input_canvas = input_canvas_upscaled,
 		.importance_canvas = importance_canvas,
 		.current_canvas_background_gs = current_canvas_background_gs,
-		.line_color = (gs_op_t){.gs = 1.0f, .op = 1.0f},
-		.error_formula = ERROR_FORMULA_DIFF,
+		.line_color = (gs_op_t){.gs = 1.0f, .op = 0.4f},
+		.error_formula = ERROR_FORMULA_DIFF_SQUARE,
+		.score_formula = SCORE_FORMULA_DIFF_AVG_GS_ERASE_TARGET,
 		.resolution_factor = 1,
-		.pinset = pinset_generate_circle_center(256),
-		.line_pool_length = 300,
-		.iteration_max_number = 60000,
+		.pinset = pinset_generate_circle(256),
+		.line_pool_length = 3000,
+		.line_number_per_iteration = 100,
+		.iteration_max_number = 50000,
 	});
 
 	return 0;
