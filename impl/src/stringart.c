@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <float.h>
 #include <stdio.h>
+#include <time.h>
 
 /* Returns the error, between 0.0f and 1.0f, induced buy the given grayscale color,
  * in comparison to the given target color grayscale. */
@@ -39,6 +40,7 @@ static float error_delta(float target_gs, float old_gs, float new_gs,
 	return new_error - old_error;
 }
 
+/* TODO: add a `canvas_float_t importance_canvas` parameter */
 /* Returns the sum of error deltas induced by drawing every pixels of the given line
  * on the given current canvas, in comparison to the given target canvas.
  * Through out_positive_error_delta, the sum of the positive error deltas can be returned too. */
@@ -72,6 +74,7 @@ static float error_delta_line(canvas_float_t target_canvas, canvas_gs_op_t curre
 	return error_delta_acc;
 }
 
+/* TODO: add a `canvas_float_t importance_canvas` parameter */
 /* TODO: error_delta_line_self is a temporary workaround, make error_delta_line somehow generic */
 static float error_delta_line_self(canvas_gs_op_t current_canvas,
 	float current_canvas_background_gs,
@@ -114,6 +117,67 @@ static float average_gs_target_line(canvas_float_t target_canvas, line_pixels_t 
 	return gs_acc / importance_sum;
 }
 
+static float error_canvas(canvas_float_t target_canvas, canvas_gs_op_t current_canvas,
+	float current_canvas_background_gs,
+	error_formula_t error_formula, canvas_float_t importance_canvas)
+{
+	assert(target_canvas.resolution == current_canvas.resolution);
+	assert(importance_canvas.resolution == current_canvas.resolution);
+	const unsigned int resolution = current_canvas.resolution;
+
+	float error_acc = 0.0f;
+	float importance_sum = 0.0f;
+	for (unsigned int i = 0; i < resolution * resolution; i++)
+	{
+		const float importance = importance_canvas.grid[i];
+		const float target_gs = target_canvas.grid[i];
+		const float current_gs =
+			gs_op_combine_background(current_canvas_background_gs, current_canvas.grid[i]);
+		const float error = error_formula(target_gs, current_gs);
+		error_acc += error * importance;
+		importance_sum += importance;
+	}
+
+	return error_acc / importance_sum;
+}
+
+static float canvas_float_avg_gs(canvas_float_t canvas, canvas_float_t importance_canvas)
+{
+	assert(importance_canvas.resolution == canvas.resolution);
+	const unsigned int resolution = canvas.resolution;
+
+	float gs_acc = 0.0f;
+	float importance_sum = 0.0f;
+	for (unsigned int i = 0; i < resolution * resolution; i++)
+	{
+		const float importance = importance_canvas.grid[i];
+		const float gs = canvas.grid[i];
+		gs_acc += gs * importance;
+		importance_sum += importance;
+	}
+
+	return gs_acc / importance_sum;
+}
+
+static float canvas_gs_op_avg_gs(canvas_gs_op_t canvas, float current_canvas_background_gs,
+	canvas_float_t importance_canvas)
+{
+	assert(importance_canvas.resolution == canvas.resolution);
+	const unsigned int resolution = canvas.resolution;
+
+	float gs_acc = 0.0f;
+	float importance_sum = 0.0f;
+	for (unsigned int i = 0; i < resolution * resolution; i++)
+	{
+		const float importance = importance_canvas.grid[i];
+		const float gs = gs_op_combine_background(current_canvas_background_gs, canvas.grid[i]);
+		gs_acc += gs * importance;
+		importance_sum += importance;
+	}
+
+	return gs_acc / importance_sum;
+}
+
 void perform_string_art(string_art_input_t input)
 {
 	assert(input.resolution_factor > 0);
@@ -135,6 +199,12 @@ void perform_string_art(string_art_input_t input)
 		(assert(0), (error_formula_t)NULL);
 	pinset_t pinset = input.pinset;
 	const unsigned int iteration_max_number = input.iteration_max_number;
+
+	assert(input.halting_heuristic_granularity > 0);
+	const float target_avg_gs = canvas_float_avg_gs(target_canvas, importance_canvas);
+	float previous_avg_gs = -FLT_MAX;
+	float previous_error = FLT_MAX;
+	unsigned int halting_pressure = 0;
 
 	line_stats_t* line_stats_da = NULL;
 	unsigned int line_stats_len = 0;
@@ -163,6 +233,7 @@ void perform_string_art(string_art_input_t input)
 
 	unsigned int line_i = 0;
 
+	clock_t loop_start = clock();
 	for (unsigned int iteration_i = 0; iteration_i < iteration_max_number; iteration_i++)
 	{
 		for (unsigned int i = 0; i < line_pool_length; i++)
@@ -263,6 +334,24 @@ void perform_string_art(string_art_input_t input)
 						fabsf(line_stats.avg_gs_erase_target - current_canvas_background_gs)
 						-line_stats.positive_error_delta_hd_corrected * 0.8f;
 				break;
+				case SCORE_FORMULA_HEURISTIC_MIX_WITH_COEFS:
+					{
+						line_stats.score = 0.0f;
+						unsigned int k = 0;
+						#define H(v_) line_stats.score += input.heuristic_mix_coefs[k++] * (v_);
+						H(fabsf(line_stats.avg_gs_erase_target - current_canvas_background_gs));
+						H(fabsf(line_stats.avg_gs_target - current_canvas_background_gs));
+						H(-line_stats.error_delta_sd);
+						H(line_stats.delta_sd);
+						H(-line_stats.error_delta_sd / (float)line_pixels_sd.pixel_count);
+						H(-line_stats.positive_error_delta_hd_corrected);
+						#undef H
+						assert(k <= SCORE_HEURISTIC_MIX_COEFS_NUMBER); /* Change macro if error. */
+					}
+				break;
+				default:
+					assert(0);
+				break;
 			}
 
 			unsigned int j = 0;
@@ -325,39 +414,29 @@ void perform_string_art(string_art_input_t input)
 				canvas_float_output_bmp(target_erase_canvas, file_name);
 			}
 
-			if (line_i % 100 == 0 && line_i > 0)
-			{
-				#if 0
-				printf("%.5d %.5d   % 6.4f % 6.4f % 6.4f   "
-					"% 11.5f % 11.5f  % 11.5f % 11.5f  % 11.5f\n",
-					iteration_i, line_i,
-					best_score_array[0], best_score_array[line_number_per_iteration-1],
-					best_score_array[line_number_per_iteration-1] - best_score_array[0],
-					best_line_error_delta_array[0],
-					best_line_error_delta_array[line_number_per_iteration-1],
-					best_line_positive_error_delta_hd_array[line_number_per_iteration-1],
-					best_line_delta_sd_array[line_number_per_iteration-1]);
-				#endif
-			}
-
 			line_i++;
 			line_number++;
 		}
 
+		float current_avg_gs = -1.0f;
+		if (input.measure_all || input.halting_heuristic == HALTING_WHEN_AGV_GS_MATCH)
+		{
+			current_avg_gs =
+				canvas_gs_op_avg_gs(current_canvas_sd, current_canvas_background_gs,
+					importance_canvas);
+		}
+
+		float error = -1.0f;
+		if (input.measure_all || input.halting_heuristic == HALTING_WHEN_ERROR_GOES_UP)
+		{
+			error = error_canvas(target_canvas,
+				current_canvas_sd, current_canvas_background_gs,
+				error_formula, importance_canvas);
+		}
+
 		if (iteration_i % 3 == 0)
 		{
-			#if 0
-			printf("%.5d %.5d   % 6.4f % 6.4f % 6.4f   "
-				"% 11.5f % 11.5f  % 11.5f % 11.5f  % 11.5f\n",
-				iteration_i, line_i,
-				best_score_array[0], best_score_array[line_number_per_iteration-1],
-				best_score_array[line_number_per_iteration-1] - best_score_array[0],
-				best_line_error_delta_array[0],
-				best_line_error_delta_array[line_number_per_iteration-1],
-				best_line_positive_error_delta_hd_array[line_number_per_iteration-1],
-				best_line_delta_sd_array[line_number_per_iteration-1]);
-			#endif
-			printf("%.5d\n", line_i);
+			printf("%.5d, %.8f, % .8f\n", line_i, current_avg_gs, error);
 		}
 
 		DA_LENGTHEN(iteration_stats_len += 1, iteration_stats_cap,
@@ -365,7 +444,80 @@ void perform_string_art(string_art_input_t input)
 		assert(iteration_i == iteration_stats_len-1);
 		iteration_stats_da[iteration_i].line_index_lower = line_index_lower;
 		iteration_stats_da[iteration_i].line_number = line_number;
+		iteration_stats_da[iteration_i].avg_gs = current_avg_gs;
+		iteration_stats_da[iteration_i].error = error;
+
+		#define HALT_PRESSURE_INCREASE(cause_message_) \
+			do \
+			{ \
+				halting_pressure++; \
+				if (halting_pressure >= input.halting_pressure_max) \
+				{ \
+					printf("Halt: " cause_message_ "\n"); \
+					goto outer_loop_break; \
+				} \
+			} \
+			while (0)
+
+		if (iteration_i % input.halting_heuristic_granularity == 0)
+		{
+			switch (input.halting_heuristic)
+			{
+				case HALTING_WHEN_ITERATION_LIMIT_REACHED:
+					/* Nothing to be done here, the for loop will stop itself in due time. */
+				break;
+				case HALTING_WHEN_AGV_GS_MATCH:
+					if (current_canvas_background_gs <= target_avg_gs)
+					{
+						if (current_avg_gs > target_avg_gs)
+						{
+							HALT_PRESSURE_INCREASE("Average greayscale match.");
+						}
+					}
+					else
+					{
+						if (current_avg_gs < target_avg_gs)
+						{
+							HALT_PRESSURE_INCREASE("Average greayscale match.");
+						}
+					}
+				break;
+				case HALTING_WHEN_ERROR_GOES_UP:
+					if (error > previous_error)
+					{
+						HALT_PRESSURE_INCREASE("Error increasing.");
+					}
+				break;
+				case HALTING_WHEN_AGV_GS_STAGNATE:
+					if (fabsf(current_avg_gs - previous_avg_gs) < 0.00001f)
+					{
+						HALT_PRESSURE_INCREASE("Average greayscale stagnation.");
+					}
+				break;
+				case HALTING_WHEN_ERROR_GOES_UP_OR_AGV_GS_STAGNATE:
+					if (error > previous_error)
+					{
+						HALT_PRESSURE_INCREASE("Error increasing.");
+					}
+					if (fabsf(current_avg_gs - previous_avg_gs) < 0.00001f)
+					{
+						HALT_PRESSURE_INCREASE("Average greayscale stagnation.");
+					}
+				break;
+				default:
+					assert(0);
+				break;
+			}
+		}
+
+		previous_avg_gs = current_avg_gs;
+		previous_error = error;
 	}
+	outer_loop_break:;
+	clock_t loop_end = clock();
+
+	const double loop_time = ((double)(loop_end - loop_start)) / CLOCKS_PER_SEC;
+	printf("Loop time: %.4fs\n", loop_time);
 
 	canvas_float_output_bmp(target_erase_canvas, "A_target_erase.bmp");
 	canvas_gs_op_output_bmp(current_canvas_hd, current_canvas_background_gs, "A_hd.bmp");

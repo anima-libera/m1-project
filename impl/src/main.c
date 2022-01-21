@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <float.h>
 
 /* Is using the given resolution safe from "gap lines" comming from floating point errors
  * that can ruin the rendering in some cases. */
@@ -39,6 +40,12 @@ int make_resolution_good(unsigned int resolution)
 
 int main(int argc, const char** argv)
 {
+	float heuristic_mix_coefs[SCORE_HEURISTIC_MIX_COEFS_NUMBER];
+	for (unsigned int i = 0; i < SCORE_HEURISTIC_MIX_COEFS_NUMBER; i++)
+	{
+		heuristic_mix_coefs[i] = -FLT_MAX;
+	}
+
 	for (unsigned int i = 1; i < (unsigned int)argc; i++)
 	{
 		if (strcmp(argv[i], "--good-resolutions") == 0)
@@ -52,6 +59,15 @@ int main(int argc, const char** argv)
 			}
 			printf("\n");
 			return 0;
+		}
+		else if (strcmp(argv[i], "--coefs") == 0)
+		{
+			i++;
+			assert(argc - i >= SCORE_HEURISTIC_MIX_COEFS_NUMBER);
+			for (unsigned int j = 0; j < SCORE_HEURISTIC_MIX_COEFS_NUMBER; j++, i++)
+			{
+				heuristic_mix_coefs[j] = atoi(argv[i]);
+			}
 		}
 	}
 
@@ -98,7 +114,7 @@ int main(int argc, const char** argv)
 	}
 
 	const float current_canvas_background_gs = 0.0f;
-	const unsigned int pre_resolution_factor = 4;
+	const unsigned int pre_resolution_factor = 2;
 
 	canvas_float_t input_canvas_upscaled = canvas_float_copy_upscale(input_canvas,
 		pre_resolution_factor);
@@ -143,19 +159,54 @@ int main(int argc, const char** argv)
 		1.0f);
 #endif
 
-	perform_string_art((string_art_input_t){
+	string_art_input_t input = {
 		.input_canvas = input_canvas_upscaled,
 		.importance_canvas = importance_canvas,
 		.current_canvas_background_gs = current_canvas_background_gs,
-		.line_color = (gs_op_t){.gs = 1.0f, .op = 0.4f},
+		.line_color = (gs_op_t){.gs = 1.0f, .op = 0.5f},
 		.error_formula = ERROR_FORMULA_DIFF_SQUARE,
-		.score_formula = SCORE_FORMULA_DIFF_AVG_GS_ERASE_TARGET,
+		.score_formula = SCORE_FORMULA_HEURISTIC_MIX_WITH_COEFS,
+		.heuristic_mix_coefs = {0},
 		.resolution_factor = 1,
 		.pinset = pinset_generate_circle(256),
-		.line_pool_length = 3000,
-		.line_number_per_iteration = 100,
+		.line_pool_length = 2000,
+		.line_number_per_iteration = 70,
 		.iteration_max_number = 50000,
-	});
+		.halting_heuristic = HALTING_WHEN_ERROR_GOES_UP_OR_AGV_GS_STAGNATE,
+		.halting_heuristic_granularity = 1,
+		.halting_pressure_max = 15,
+		.measure_all = 1,
+	};
+
+	if (input.score_formula == SCORE_FORMULA_HEURISTIC_MIX_WITH_COEFS)
+	{
+		int no_coefs = 1;
+		for (unsigned int i = 0; i < SCORE_HEURISTIC_MIX_COEFS_NUMBER; i++)
+		{
+			input.heuristic_mix_coefs[i] = heuristic_mix_coefs[i];
+			if (input.heuristic_mix_coefs[i] != -FLT_MAX)
+			{
+				no_coefs = 0;
+			}
+		}
+		if (no_coefs)
+		{
+			fprintf(stderr, "Error: SCORE_FORMULA_HEURISTIC_MIX_WITH_COEFS requiers coefs to be "
+				"given via the --coefs commant line option.\n");
+			exit(EXIT_FAILURE);
+		}
+		else
+		{
+			printf("Coefs:");
+			for (unsigned int i = 0; i < SCORE_HEURISTIC_MIX_COEFS_NUMBER; i++)
+			{
+				printf(" %f", input.heuristic_mix_coefs[i]);
+			}
+			printf("\n");
+		}
+	}
+
+	perform_string_art(input);
 
 	return 0;
 }

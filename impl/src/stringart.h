@@ -25,8 +25,21 @@ enum score_formula_enum_t
 	SCORE_FORMULA_NEG_ERROR_DELTA_NORMALIZED,
 	SCORE_FORMULA_NEG_ERROR_DELTA_POSITIVE_ERROR_PENALTY,
 	SCORE_FORMULA_DIFF_AVG_GS_ERASE_TARGET_POSITIVE_ERROR_PENALTY,
+	SCORE_FORMULA_HEURISTIC_MIX_WITH_COEFS,
 };
 typedef enum score_formula_enum_t score_formula_enum_t;
+
+#define SCORE_HEURISTIC_MIX_COEFS_NUMBER 6
+
+enum halting_heuristic_t
+{
+	HALTING_WHEN_ITERATION_LIMIT_REACHED,
+	HALTING_WHEN_AGV_GS_MATCH,
+	HALTING_WHEN_ERROR_GOES_UP,
+	HALTING_WHEN_AGV_GS_STAGNATE,
+	HALTING_WHEN_ERROR_GOES_UP_OR_AGV_GS_STAGNATE,
+};
+typedef enum halting_heuristic_t halting_heuristic_t;
 
 struct string_art_input_t
 {
@@ -36,11 +49,16 @@ struct string_art_input_t
 	gs_op_t line_color;
 	error_formula_enum_t error_formula;
 	score_formula_enum_t score_formula;
+	float heuristic_mix_coefs[SCORE_HEURISTIC_MIX_COEFS_NUMBER];
 	unsigned int resolution_factor;
 	pinset_t pinset;
 	unsigned int line_pool_length;
 	unsigned int line_number_per_iteration;
 	unsigned int iteration_max_number;
+	halting_heuristic_t halting_heuristic;
+	unsigned int halting_heuristic_granularity;
+	unsigned int halting_pressure_max;
+	int measure_all;
 };
 typedef struct string_art_input_t string_art_input_t;
 
@@ -62,6 +80,8 @@ struct iteration_stats_t
 {
 	unsigned int line_index_lower;
 	unsigned int line_number;
+	float avg_gs;
+	float error;
 };
 typedef struct iteration_stats_t iteration_stats_t;
 
@@ -80,6 +100,9 @@ struct string_art_state_t
 	unsigned int line_pool_length;
 	unsigned int line_number_per_iteration;
 	unsigned int iteration_max_number;
+	halting_heuristic_t halting_heuristic;
+	unsigned int halting_heuristic_granularity;
+	int measure_all;
 	canvas_gs_op_t current_canvas_sd;
 	canvas_gs_op_t current_canvas_hd;
 	rg_t rg;
