@@ -189,6 +189,10 @@ void perform_string_art(string_art_input_t input)
 	canvas_float_t target_canvas = input.input_canvas;
 	canvas_float_t target_canvas_hd =
 		canvas_float_copy_upscale(input.input_canvas, input.resolution_factor);
+	canvas_float_t target_canvas_ssd =
+		canvas_float_copy_downscale(input.input_canvas, input.evaluation_downscale_factor);
+	canvas_float_t importance_canvas_ssd =
+		canvas_float_copy_downscale(input.importance_canvas, input.evaluation_downscale_factor);
 	canvas_float_t target_erase_canvas = input.input_canvas;
 	canvas_gs_op_t current_canvas_sd = canvas_gs_op_init_fill(resolution_sd, (gs_op_t){.op = 0.0f});
 	canvas_gs_op_t current_canvas_hd = canvas_gs_op_init_fill(resolution_hd, (gs_op_t){.op = 0.0f});
@@ -204,6 +208,9 @@ void perform_string_art(string_art_input_t input)
 	const float target_avg_gs = canvas_float_avg_gs(target_canvas, importance_canvas);
 	float previous_avg_gs = -FLT_MAX;
 	float previous_error = FLT_MAX;
+	float previous_error_ssd = FLT_MAX;
+	float min_error_ssd = FLT_MAX;
+	unsigned int min_error_ssd_line_count = 0;
 	unsigned int halting_pressure = 0;
 
 	line_stats_t* line_stats_da = NULL;
@@ -214,8 +221,11 @@ void perform_string_art(string_art_input_t input)
 	unsigned int iteration_stats_len = 0;
 	unsigned int iteration_stats_cap = 0;
 
-	canvas_float_output_bmp(target_canvas, "A_target.bmp");
-	canvas_float_output_bmp(importance_canvas, "A_importance.bmp");
+	if (input.do_log_and_output)
+	{
+		canvas_float_output_bmp(target_canvas, "A_target.bmp");
+		canvas_float_output_bmp(importance_canvas, "A_importance.bmp");
+	}
 
 	rg_t rg;
 	rg_time_seed(&rg);
@@ -403,15 +413,13 @@ void perform_string_art(string_art_input_t input)
 			canvas_float_draw_line_coords(target_erase_canvas,
 				line_neg, line_plot_pixels_mid_point);
 
-			if (line_i % 100 == 0 && line_i != 0)
+			if (line_i % 100 == 0 && line_i != 0 && input.do_log_and_output)
 			{
 				char file_name[99];
 
-				sprintf(file_name, "line_%04d.bmp", line_i);
-				canvas_gs_op_output_bmp(current_canvas_hd, current_canvas_background_gs, file_name);
-
-				sprintf(file_name, "line_erase_%04d.bmp", line_i);
-				canvas_float_output_bmp(target_erase_canvas, file_name);
+				sprintf(file_name, "line_%05d.bmp", line_i);
+				canvas_gs_op_output_bmp(current_canvas_hd, current_canvas_background_gs,
+					file_name);
 			}
 
 			line_i++;
@@ -419,7 +427,11 @@ void perform_string_art(string_art_input_t input)
 		}
 
 		float current_avg_gs = -1.0f;
-		if (input.measure_all || input.halting_heuristic == HALTING_WHEN_AGV_GS_MATCH)
+		if (input.measure_all ||
+			input.halting_heuristic == HALTING_WHEN_AGV_GS_MATCH ||
+			input.halting_heuristic == HALTING_WHEN_AGV_GS_STAGNATE ||
+			input.halting_heuristic == HALTING_WHEN_ERROR_GOES_UP_OR_AGV_GS_STAGNATE ||
+			input.halting_heuristic == HALTING_WHEN_ERROR_SSD_GOES_UP_OR_AGV_GS_STAGNATE)
 		{
 			current_avg_gs =
 				canvas_gs_op_avg_gs(current_canvas_sd, current_canvas_background_gs,
@@ -427,16 +439,37 @@ void perform_string_art(string_art_input_t input)
 		}
 
 		float error = -1.0f;
-		if (input.measure_all || input.halting_heuristic == HALTING_WHEN_ERROR_GOES_UP)
+		if (input.measure_all ||
+			input.halting_heuristic == HALTING_WHEN_ERROR_GOES_UP ||
+			input.halting_heuristic == HALTING_WHEN_ERROR_GOES_UP_OR_AGV_GS_STAGNATE)
 		{
 			error = error_canvas(target_canvas,
 				current_canvas_sd, current_canvas_background_gs,
 				error_formula, importance_canvas);
 		}
 
-		if (iteration_i % 3 == 0)
+		float error_ssd = -1.0f;
+		if (input.measure_all ||
+			input.halting_heuristic == HALTING_WHEN_ERROR_SSD_GOES_UP ||
+			input.halting_heuristic == HALTING_WHEN_ERROR_SSD_GOES_UP_OR_AGV_GS_STAGNATE)
 		{
-			printf("%.5d, %.8f, % .8f\n", line_i, current_avg_gs, error);
+			canvas_gs_op_t current_canvas_ssd =
+				canvas_gs_op_copy_downscale(current_canvas_sd, input.evaluation_downscale_factor);
+			error_ssd = error_canvas(target_canvas_ssd,
+				current_canvas_ssd, current_canvas_background_gs,
+				error_formula, importance_canvas_ssd);
+			canvas_gs_op_cleanup(current_canvas_ssd);
+			if (error_ssd < min_error_ssd)
+			{
+				min_error_ssd = error_ssd;
+				min_error_ssd_line_count = line_i;
+			}
+		}
+
+		if (iteration_i % 3 == 0 && input.do_log_and_output)
+		{
+			printf("%.5d, %.6f/%.6f, % .6f, % .6f\n",
+				line_i, current_avg_gs, target_avg_gs, error, error_ssd);
 		}
 
 		DA_LENGTHEN(iteration_stats_len += 1, iteration_stats_cap,
@@ -453,7 +486,10 @@ void perform_string_art(string_art_input_t input)
 				halting_pressure++; \
 				if (halting_pressure >= input.halting_pressure_max) \
 				{ \
-					printf("Halt: " cause_message_ "\n"); \
+					if (input.do_log_and_output) \
+					{ \
+						printf("Halt: " cause_message_ "\n"); \
+					} \
 					goto outer_loop_break; \
 				} \
 			} \
@@ -488,6 +524,12 @@ void perform_string_art(string_art_input_t input)
 						HALT_PRESSURE_INCREASE("Error increasing.");
 					}
 				break;
+				case HALTING_WHEN_ERROR_SSD_GOES_UP:
+					if (error_ssd > previous_error_ssd)
+					{
+						HALT_PRESSURE_INCREASE("Error (super small resolution) increasing.");
+					}
+				break;
 				case HALTING_WHEN_AGV_GS_STAGNATE:
 					if (fabsf(current_avg_gs - previous_avg_gs) < 0.00001f)
 					{
@@ -504,22 +546,49 @@ void perform_string_art(string_art_input_t input)
 						HALT_PRESSURE_INCREASE("Average greayscale stagnation.");
 					}
 				break;
+				case HALTING_WHEN_ERROR_SSD_GOES_UP_OR_AGV_GS_STAGNATE:
+					if (error_ssd > previous_error_ssd)
+					{
+						HALT_PRESSURE_INCREASE("Error (super small resolution) increasing.");
+					}
+					if (fabsf(current_avg_gs - previous_avg_gs) < 0.00001f)
+					{
+						HALT_PRESSURE_INCREASE("Average greayscale stagnation.");
+					}
+				break;
 				default:
 					assert(0);
 				break;
 			}
 		}
 
+		#undef HALT_PRESSURE_INCREASE
+
 		previous_avg_gs = current_avg_gs;
 		previous_error = error;
+		previous_error_ssd = error_ssd;
 	}
 	outer_loop_break:;
 	clock_t loop_end = clock();
 
 	const double loop_time = ((double)(loop_end - loop_start)) / CLOCKS_PER_SEC;
-	printf("Loop time: %.4fs\n", loop_time);
+	if (input.do_log_and_output)
+	{
+		printf("Loop time: %.4fs\n", loop_time);
+	}
 
-	canvas_float_output_bmp(target_erase_canvas, "A_target_erase.bmp");
-	canvas_gs_op_output_bmp(current_canvas_hd, current_canvas_background_gs, "A_hd.bmp");
-	canvas_gs_op_output_bmp(current_canvas_sd, current_canvas_background_gs, "A_sd.bmp");
+	if (input.do_log_and_output)
+	{
+		canvas_float_output_bmp(target_erase_canvas, "A_target_erase.bmp");
+		canvas_gs_op_output_bmp(current_canvas_hd, current_canvas_background_gs, "A_hd.bmp");
+		canvas_gs_op_output_bmp(current_canvas_sd, current_canvas_background_gs, "A_sd.bmp");
+		canvas_gs_op_t current_canvas_ssd =
+			canvas_gs_op_copy_downscale(current_canvas_sd, input.evaluation_downscale_factor);
+		canvas_gs_op_output_bmp(current_canvas_ssd, current_canvas_background_gs, "A_ssd.bmp");
+	}
+
+	if (input.print_time_and_error)
+	{
+		printf("%f %f %d\n", loop_time, min_error_ssd, min_error_ssd_line_count);
+	}
 }

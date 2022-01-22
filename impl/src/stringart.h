@@ -36,8 +36,10 @@ enum halting_heuristic_t
 	HALTING_WHEN_ITERATION_LIMIT_REACHED,
 	HALTING_WHEN_AGV_GS_MATCH,
 	HALTING_WHEN_ERROR_GOES_UP,
+	HALTING_WHEN_ERROR_SSD_GOES_UP,
 	HALTING_WHEN_AGV_GS_STAGNATE,
 	HALTING_WHEN_ERROR_GOES_UP_OR_AGV_GS_STAGNATE,
+	HALTING_WHEN_ERROR_SSD_GOES_UP_OR_AGV_GS_STAGNATE,
 };
 typedef enum halting_heuristic_t halting_heuristic_t;
 
@@ -59,6 +61,9 @@ struct string_art_input_t
 	unsigned int halting_heuristic_granularity;
 	unsigned int halting_pressure_max;
 	int measure_all;
+	unsigned int evaluation_downscale_factor;
+	int do_log_and_output;
+	int print_time_and_error;
 };
 typedef struct string_art_input_t string_art_input_t;
 
@@ -82,6 +87,7 @@ struct iteration_stats_t
 	unsigned int line_number;
 	float avg_gs;
 	float error;
+	float error_ssd;
 };
 typedef struct iteration_stats_t iteration_stats_t;
 

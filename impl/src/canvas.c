@@ -11,6 +11,23 @@
 	(0 <= (coords_gird_).x && (coords_gird_).x < (int)(resolution_) && \
 		0 <= (coords_gird_).y && (coords_gird_).y < (int)(resolution_))
 
+static gs_op_t gs_op_t_add(gs_op_t a, gs_op_t b)
+{
+	return (gs_op_t){.gs = a.gs + b.gs, .op = a.op + b.op};
+}
+static gs_op_t gs_op_t_div(gs_op_t x, float d)
+{
+	return (gs_op_t){.gs = x.gs / d, .op = x.op / d};
+}
+static float float_add(float a, float b)
+{
+	return a + b;
+}
+static float float_div(float x, float d)
+{
+	return x / d;
+}
+
 #define DEFINE_CANVAS(canvas_type_, function_prefix_, element_type_) \
 	\
 	canvas_type_ function_prefix_##_init(unsigned int resolution) \
@@ -62,6 +79,33 @@
 			copy_hd.grid[x_hd + copy_hd.resolution * y_hd] = element_sd; \
 		} \
 		return copy_hd; \
+	} \
+	\
+	canvas_type_ function_prefix_##_copy_downscale(canvas_type_ canvas_hd, \
+		unsigned int inverse_resolution_factor) \
+	{ \
+		canvas_type_ copy_sd; \
+		copy_sd.resolution = canvas_hd.resolution / inverse_resolution_factor; \
+		copy_sd.grid = malloc(copy_sd.resolution * copy_sd.resolution * sizeof(element_type_)); \
+		for (unsigned int y_sd = 0; y_sd < copy_sd.resolution; y_sd++) \
+		for (unsigned int x_sd = 0; x_sd < copy_sd.resolution; x_sd++) \
+		{ \
+			element_type_ element_sd = {0}; \
+			for (unsigned int y_hd = y_sd * inverse_resolution_factor; \
+				y_hd < (y_sd+1) * inverse_resolution_factor; y_hd++) \
+			for (unsigned int x_hd = x_sd * inverse_resolution_factor; \
+				x_hd < (x_sd+1) * inverse_resolution_factor; x_hd++) \
+			{ \
+				const element_type_ element_hd = \
+					canvas_hd.grid[x_hd + canvas_hd.resolution * y_hd]; \
+				element_sd = element_type_##_add(element_sd, element_hd); \
+			} \
+			const float normalization_factor = \
+				inverse_resolution_factor * inverse_resolution_factor; \
+			element_sd = element_type_##_div(element_sd, normalization_factor); \
+			copy_sd.grid[x_sd + copy_sd.resolution * y_sd] = element_sd; \
+		} \
+		return copy_sd; \
 	} \
 	\
 	canvas_type_ function_prefix_##_copy_expand(canvas_type_ canvas, \

@@ -45,6 +45,14 @@ int main(int argc, const char** argv)
 	{
 		heuristic_mix_coefs[i] = -FLT_MAX;
 	}
+	unsigned int parameter_line_pool_size = 4000;
+	unsigned int parameter_lines_per_iteration = 140;
+	float parameter_line_opacity = 0.3f;
+	unsigned int parameter_target_resolution_upscale = 4;
+	unsigned int parameter_pin_number = 256;
+
+	int no_output = 0;
+	int print_time_and_error = 0;
 
 	for (unsigned int i = 1; i < (unsigned int)argc; i++)
 	{
@@ -66,8 +74,41 @@ int main(int argc, const char** argv)
 			assert(argc - i >= SCORE_HEURISTIC_MIX_COEFS_NUMBER);
 			for (unsigned int j = 0; j < SCORE_HEURISTIC_MIX_COEFS_NUMBER; j++, i++)
 			{
-				heuristic_mix_coefs[j] = atoi(argv[i]);
+				heuristic_mix_coefs[j] = atof(argv[i]);
 			}
+			i--;
+		}
+		else if (strcmp(argv[i], "--params") == 0)
+		{
+			#define PARAMETER(name_, func_) \
+				do \
+				{ \
+					i++; \
+					assert(i < (unsigned int)argc); \
+					name_ = func_(argv[i]); \
+				} \
+				while (0)
+			PARAMETER(parameter_line_pool_size, atoi);
+			assert(1 <= parameter_line_pool_size);
+			PARAMETER(parameter_lines_per_iteration, atoi);
+			assert(1 <= parameter_lines_per_iteration);
+			assert(parameter_lines_per_iteration <= parameter_line_pool_size);
+			PARAMETER(parameter_line_opacity, atof);
+			assert(0.0f <= parameter_line_opacity);
+			assert(parameter_line_opacity <= 1.0f);
+			PARAMETER(parameter_target_resolution_upscale, atoi);
+			assert(1 <= parameter_target_resolution_upscale);
+			PARAMETER(parameter_pin_number, atoi);
+			assert(2 <= parameter_pin_number);
+			#undef PARAMETER
+		}
+		else if (strcmp(argv[i], "--no-output") == 0)
+		{
+			no_output = 1;
+		}
+		else if (strcmp(argv[i], "--print-time-and-error") == 0)
+		{
+			print_time_and_error = 1;
 		}
 	}
 
@@ -90,13 +131,19 @@ int main(int argc, const char** argv)
 	sprintf(filepath_raw, "../rawpics/%s.raw", pic_name);
 	sprintf(filepath_dim, "../rawpics/%s.dim", pic_name);
 
-	printf("Reading dimensions from %s\n", filepath_dim);
+	if (!no_output)
+	{
+		printf("Reading dimensions from %s\n", filepath_dim);
+	}
 	FILE* file_dim = fopen(filepath_dim, "r");
 	unsigned int w, h;
 	fscanf(file_dim, "%u %u", &w, &h);
 	fclose(file_dim);
 
-	printf("Reading raw pixel data from %s\n", filepath_raw);
+	if (!no_output)
+	{
+		printf("Reading raw pixel data from %s\n", filepath_raw);
+	}
 	unsigned int buffer_size = w * h * sizeof(rgba_t);
 	rgba_t* rgba_grid = malloc(buffer_size);
 	FILE* file_raw = fopen(filepath_raw, "rb");
@@ -114,7 +161,7 @@ int main(int argc, const char** argv)
 	}
 
 	const float current_canvas_background_gs = 0.0f;
-	const unsigned int pre_resolution_factor = 2;
+	const unsigned int pre_resolution_factor = parameter_target_resolution_upscale;
 
 	canvas_float_t input_canvas_upscaled = canvas_float_copy_upscale(input_canvas,
 		pre_resolution_factor);
@@ -128,10 +175,13 @@ int main(int argc, const char** argv)
 		canvas_float_cleanup(input_canvas_upscaled);
 		input_canvas_upscaled = good_canvas;
 
-		printf("Bad resolution %d detected, upscaled to resolution %d.\n",
-			bad_resolution, good_resolution);
-		printf("Note: "
-			"The --good-resolutions command line option asks for a list of good resolutions.\n");
+		if (!no_output)
+		{
+			printf("Bad resolution %d detected, upscaled to resolution %d.\n",
+				bad_resolution, good_resolution);
+			printf("Note: The --good-resolutions command line option "
+				"asks for a list of good resolutions.\n");
+		}
 	}
 
 #if 0
@@ -163,19 +213,22 @@ int main(int argc, const char** argv)
 		.input_canvas = input_canvas_upscaled,
 		.importance_canvas = importance_canvas,
 		.current_canvas_background_gs = current_canvas_background_gs,
-		.line_color = (gs_op_t){.gs = 1.0f, .op = 0.5f},
+		.line_color = (gs_op_t){.gs = 1.0f, .op = parameter_line_opacity},
 		.error_formula = ERROR_FORMULA_DIFF_SQUARE,
 		.score_formula = SCORE_FORMULA_HEURISTIC_MIX_WITH_COEFS,
-		.heuristic_mix_coefs = {0},
+		.heuristic_mix_coefs = {0}, /* Copied from heuristic_mix_coefs below. */
 		.resolution_factor = 1,
-		.pinset = pinset_generate_circle(256),
-		.line_pool_length = 2000,
-		.line_number_per_iteration = 70,
+		.pinset = pinset_generate_circle(parameter_pin_number),
+		.line_pool_length = parameter_line_pool_size,
+		.line_number_per_iteration = parameter_lines_per_iteration,
 		.iteration_max_number = 50000,
-		.halting_heuristic = HALTING_WHEN_ERROR_GOES_UP_OR_AGV_GS_STAGNATE,
+		.halting_heuristic = HALTING_WHEN_ERROR_SSD_GOES_UP_OR_AGV_GS_STAGNATE,
 		.halting_heuristic_granularity = 1,
-		.halting_pressure_max = 15,
+		.halting_pressure_max = 3,
 		.measure_all = 1,
+		.evaluation_downscale_factor = 12 * pre_resolution_factor,
+		.do_log_and_output = !no_output,
+		.print_time_and_error = print_time_and_error,
 	};
 
 	if (input.score_formula == SCORE_FORMULA_HEURISTIC_MIX_WITH_COEFS)
@@ -195,7 +248,7 @@ int main(int argc, const char** argv)
 				"given via the --coefs commant line option.\n");
 			exit(EXIT_FAILURE);
 		}
-		else
+		else if (!no_output)
 		{
 			printf("Coefs:");
 			for (unsigned int i = 0; i < SCORE_HEURISTIC_MIX_COEFS_NUMBER; i++)

@@ -34,6 +34,10 @@
 	canvas_type_ function_prefix_##_copy_upscale(canvas_type_ canvas_sd, \
 		unsigned int resolution_factor); \
 	\
+	/* Returns an allocated copy of the given canvas with a lower resolution. */\
+	canvas_type_ function_prefix_##_copy_downscale(canvas_type_ canvas_hd, \
+		unsigned int inverse_resolution_factor); \
+	\
 	/* Returns an allocated copy of the given canvas with a margin. */ \
 	canvas_type_ function_prefix_##_copy_expand(canvas_type_ canvas, \
 		unsigned int new_resolution, element_type_ filling_element); \
