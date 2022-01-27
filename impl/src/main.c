@@ -226,7 +226,8 @@ int main(int argc, const char** argv)
 		.halting_heuristic_granularity = 1,
 		.halting_pressure_max = 3,
 		.measure_all = 1,
-		.evaluation_downscale_factor = 12 * pre_resolution_factor,
+		.evaluation_downscale_factor = 6 * pre_resolution_factor,
+		.evaluation_error_formula = ERROR_FORMULA_DIFF,
 		.do_log_and_output = !no_output,
 		.print_time_and_error = print_time_and_error,
 	};

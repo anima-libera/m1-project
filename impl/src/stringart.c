@@ -193,6 +193,10 @@ void perform_string_art(string_art_input_t input)
 		canvas_float_copy_downscale(input.input_canvas, input.evaluation_downscale_factor);
 	canvas_float_t importance_canvas_ssd =
 		canvas_float_copy_downscale(input.importance_canvas, input.evaluation_downscale_factor);
+	if (input.do_log_and_output)
+	{
+		printf("Evaluation resolution: %d\n", importance_canvas_ssd.resolution);
+	}
 	canvas_float_t target_erase_canvas = input.input_canvas;
 	canvas_gs_op_t current_canvas_sd = canvas_gs_op_init_fill(resolution_sd, (gs_op_t){.op = 0.0f});
 	canvas_gs_op_t current_canvas_hd = canvas_gs_op_init_fill(resolution_hd, (gs_op_t){.op = 0.0f});
@@ -200,6 +204,10 @@ void perform_string_art(string_art_input_t input)
 	const error_formula_t error_formula =
 		input.error_formula == ERROR_FORMULA_DIFF ? error_formula_diff :
 		input.error_formula == ERROR_FORMULA_DIFF_SQUARE ? error_formula_diff_square :
+		(assert(0), (error_formula_t)NULL);
+	const error_formula_t evaluation_error_formula =
+		input.evaluation_error_formula == ERROR_FORMULA_DIFF ? error_formula_diff :
+		input.evaluation_error_formula == ERROR_FORMULA_DIFF_SQUARE ? error_formula_diff_square :
 		(assert(0), (error_formula_t)NULL);
 	pinset_t pinset = input.pinset;
 	const unsigned int iteration_max_number = input.iteration_max_number;
@@ -457,7 +465,7 @@ void perform_string_art(string_art_input_t input)
 				canvas_gs_op_copy_downscale(current_canvas_sd, input.evaluation_downscale_factor);
 			error_ssd = error_canvas(target_canvas_ssd,
 				current_canvas_ssd, current_canvas_background_gs,
-				error_formula, importance_canvas_ssd);
+				evaluation_error_formula, importance_canvas_ssd);
 			canvas_gs_op_cleanup(current_canvas_ssd);
 			if (error_ssd < min_error_ssd)
 			{

@@ -62,6 +62,7 @@ struct string_art_input_t
 	unsigned int halting_pressure_max;
 	int measure_all;
 	unsigned int evaluation_downscale_factor;
+	error_formula_enum_t evaluation_error_formula;
 	int do_log_and_output;
 	int print_time_and_error;
 };

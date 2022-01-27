@@ -6,12 +6,19 @@ import matplotlib.pyplot as plt
 
 os.chdir("bin")
 
-TIMEOUT = 100
-ERROR_MAX = 0.36
+TIMEOUT = 110
+ERROR_MAX = 0.49 #0.36
 
-some_good_param_value_table = [
-	1.0, 0.0, 0.0, 0.0, 0.0, 0.0001,
-	4000, 400, 0.6, 2, 200]
+some_good_param_value_tables = [
+	[
+		1.0, 0.0, 0.0, 0.0, 0.0, 0.0001,
+		4000, 400, 0.6, 2, 200
+	],
+	[
+		1.0, 0.0, 0.0, 0.0, 0.0, 0.0001,
+		4000, 200, 0.3, 4, 256
+	]
+]
 
 initial_param_space_table = [ # [min, max, is_int]
 	[-5.0, 5.0, False],
@@ -51,8 +58,9 @@ def random_param_table(param_space_table):
 def mutate_param_table(param_value_table, param_space_table):
 	assert param_table_is_correct(param_value_table, param_space_table)
 	def mutate_param_table_maybe_incorrect(param_value_table, param_space_table):
+		change = random.randint(2, 10)
 		return tuple(
-			param_value_table[i] if random.randint(1, 2) == 1 else
+			param_value_table[i] if random.randint(1, change) == 1 else
 				(param_value_table[i] + random.randint(-5, 5)
 				if param_space_table[i][2]
 				else param_value_table[i] + random.uniform(
@@ -62,7 +70,8 @@ def mutate_param_table(param_value_table, param_space_table):
 		)
 	new_param_value_table = mutate_param_table_maybe_incorrect(
 		param_value_table, param_space_table)
-	while not param_table_is_correct(new_param_value_table, param_space_table):
+	while ((not param_table_is_correct(new_param_value_table, param_space_table))
+		or new_param_value_table == param_value_table):
 		new_param_value_table = mutate_param_table_maybe_incorrect(
 			param_value_table, param_space_table)
 	return new_param_value_table
@@ -107,22 +116,23 @@ best_points = set()
 try:
 	while True:
 
-		points = tuple(filter(lambda x: x != None, input_output_table.values()))
-		times = tuple(map(lambda v: v[0], points))
-		errors = tuple(map(lambda v: v[1], points))
-		best_points_values = tuple(map(lambda x: input_output_table[x], best_points))
-		best_times = tuple(map(lambda v: v[0], best_points_values))
-		best_errors = tuple(map(lambda v: v[1], best_points_values))
+		if len(last_results) == 0:
+			points = tuple(filter(lambda x: x != None, input_output_table.values()))
+			times = tuple(map(lambda v: v[0], points))
+			errors = tuple(map(lambda v: v[1], points))
+			best_points_values = tuple(map(lambda x: input_output_table[x], best_points))
+			best_times = tuple(map(lambda v: v[0], best_points_values))
+			best_errors = tuple(map(lambda v: v[1], best_points_values))
 
-		plt.axis([0, TIMEOUT, 0, ERROR_MAX])
-		plt.scatter(times, errors, c="orange")
-		plt.scatter(best_times, best_errors, c="black")
-		plt.savefig("search_front.png", dpi = 100)
+			plt.axis([0, TIMEOUT, 0, ERROR_MAX])
+			plt.scatter(times, errors, c="orange")
+			plt.scatter(best_times, best_errors, c="black")
+			plt.savefig("search_front.png", dpi = 100)
 
-		plt.axis([0, 60, 0, 0.05])
-		plt.scatter(times, errors, c="orange")
-		plt.scatter(best_times, best_errors, c="black")
-		plt.savefig("search_front_zoom.png", dpi = 100)
+			plt.axis([0, 100, 0, 0.12])
+			plt.scatter(times, errors, c="orange")
+			plt.scatter(best_times, best_errors, c="black")
+			plt.savefig("search_front_zoom.png", dpi = 100)
 
 		if len(last_results) >= 1:
 			some_last_result = last_results.popitem()
@@ -133,10 +143,12 @@ try:
 			time = output[0] if output != None else TIMEOUT
 
 		else:
-			if tuple(some_good_param_value_table) not in input_output_table.keys():
-				param_value_table = tuple(some_good_param_value_table)
+			if tuple(some_good_param_value_tables[0]) not in input_output_table.keys():
+				param_value_table = tuple(some_good_param_value_tables[0])
+			elif tuple(some_good_param_value_tables[1]) not in input_output_table.keys():
+				param_value_table = tuple(some_good_param_value_tables[1])
 
-			elif random.randint(1, 100) <= 60 and len(best_points) >= 1:
+			elif random.randint(1, 100) <= 50 and len(best_points) >= 1:
 				min_error = 10 * ERROR_MAX
 				min_error_best_point = None
 				for best_point in best_points:
@@ -146,7 +158,7 @@ try:
 				best_point_to_mutate = (min_error_best_point if min_error_best_point != None
 					else random.choice(tuple(best_points)),)[0]
 				param_value_table = mutate_param_table(best_point_to_mutate, param_space_table)
-			elif random.randint(1, 100) <= 30 and len(best_points) >= 1:
+			elif random.randint(1, 100) <= 70 and len(best_points) >= 1:
 				best_point_to_mutate = random.choice(tuple(best_points))
 				param_value_table = mutate_param_table(best_point_to_mutate, param_space_table)
 			else:
@@ -154,8 +166,6 @@ try:
 
 			time = TIMEOUT
 			output = stringart(param_value_table)
-
-		print(param_value_table)
 		
 		count = len(input_output_table)
 		if output != None:
@@ -185,15 +195,30 @@ try:
 				best_points.add(param_value_table)
 				print("New best points:")
 				for best_point in best_points:
-					print(f"[{input_output_table[best_point]}]",
+					print(input_output_table[best_point],
 						"--coefs", *map(str, best_point[:6]),
 						"--params", *map(str, best_point[6:]))
+				
+				if len(last_results) == 0:
+					results = open("results", "w")
+					results.write(repr(input_output_table))
+					results.close()
+					print("Results saved")
+		
+		if random.randint(1, 20) == 1:
+			if len(last_results) == 0:
+				results = open("results", "w")
+				results.write(repr(input_output_table))
+				results.close()
+				print("Results saved")
 
 except KeyboardInterrupt:
-	print()
-	results = open("results", "w")
-	results.write(repr(input_output_table))
-	print("Results saved")
+	if len(last_results) == 0:
+		print()
+		results = open("results", "w")
+		results.write(repr(input_output_table))
+		results.close()
+		print("Results saved")
 
 
 os.chdir("..")
