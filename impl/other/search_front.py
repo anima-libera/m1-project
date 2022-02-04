@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 os.chdir("bin")
 
 TIMEOUT = 110
-ERROR_MAX = 0.49 #0.36
+ERROR_MAX = 0.36 #0.49 #0.36
+ERROR_ZOOM = 0.025 #0.12
 
 some_good_param_value_tables = [
 	[
@@ -129,7 +130,7 @@ try:
 			plt.scatter(best_times, best_errors, c="black")
 			plt.savefig("search_front.png", dpi = 100)
 
-			plt.axis([0, 100, 0, 0.12])
+			plt.axis([0, TIMEOUT-10, 0, ERROR_ZOOM])
 			plt.scatter(times, errors, c="orange")
 			plt.scatter(best_times, best_errors, c="black")
 			plt.savefig("search_front_zoom.png", dpi = 100)

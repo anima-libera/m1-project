@@ -117,6 +117,23 @@ static float average_gs_target_line(canvas_float_t target_canvas, line_pixels_t 
 	return gs_acc / importance_sum;
 }
 
+static float sum_gs_target_line(canvas_float_t target_canvas, line_pixels_t line,
+	canvas_float_t importance_canvas)
+{
+	assert(target_canvas.resolution == line.resolution);
+	assert(importance_canvas.resolution == line.resolution);
+	const unsigned int resolution = line.resolution;
+
+	float gs_sum = 0.0f;
+	for (unsigned int i = 0; i < line.pixel_count; i++) 
+	{
+		coords_grid_t coords_grid = coords_to_coords_grid(line.pixel_array[i].coords, resolution);
+		float importance = importance_canvas.grid[coords_grid.x + resolution * coords_grid.y];
+		gs_sum += importance * target_canvas.grid[coords_grid.x + resolution * coords_grid.y];
+	}
+	return gs_sum;
+}
+
 static float error_canvas(canvas_float_t target_canvas, canvas_gs_op_t current_canvas,
 	float current_canvas_background_gs,
 	error_formula_t error_formula, canvas_float_t importance_canvas)
@@ -139,6 +156,17 @@ static float error_canvas(canvas_float_t target_canvas, canvas_gs_op_t current_c
 	}
 
 	return error_acc / importance_sum;
+}
+
+static float error_rms_canvas(canvas_float_t target_canvas, canvas_gs_op_t current_canvas,
+	float current_canvas_background_gs)
+{
+	const canvas_float_t importance_canvas =
+		canvas_float_init_fill(target_canvas.resolution, 1.0f);
+	const float ms = error_canvas(target_canvas, current_canvas,
+		current_canvas_background_gs,
+		error_formula_diff_square, importance_canvas);
+	return sqrtf(ms);
 }
 
 static float canvas_float_avg_gs(canvas_float_t canvas, canvas_float_t importance_canvas)
@@ -263,7 +291,9 @@ void perform_string_art(string_art_input_t input)
 				line_pool[i] = (line_coords_t){
 					.coords_a = pinset.pin_array[pin_index_a],
 					.coords_b = pinset.pin_array[pin_index_b],
-					.color = input.line_color,
+					.color = input.random_color_gs ?
+						(gs_op_t){.gs = rg_float(&rg, 0.0f, 1.0f), .op = input.line_color.op} :
+						input.line_color,
 				};
 			} while (line_coords_length(line_pool[i]) < 0.05f);
 		}
@@ -311,6 +341,9 @@ void perform_string_art(string_art_input_t input)
 			line_stats.avg_gs_erase_target =
 				average_gs_target_line(target_erase_canvas, line_pixels_sd, importance_canvas);
 
+			line_stats.sum_gs_erase_target =
+				sum_gs_target_line(target_erase_canvas, line_pixels_sd, importance_canvas);
+
 			line_stats.avg_gs_target =
 				average_gs_target_line(target_canvas, line_pixels_sd, importance_canvas);
 
@@ -319,9 +352,17 @@ void perform_string_art(string_art_input_t input)
 
 			switch (input.score_formula)
 			{
+				case SCORE_TEST:
+					line_stats.score =
+						line_stats.avg_gs_erase_target
+						;//-line_stats.positive_error_delta_hd_corrected * 0.1f;
+				break;
 				case SCORE_FORMULA_DIFF_AVG_GS_ERASE_TARGET:
 					line_stats.score = 
 						fabsf(line_stats.avg_gs_erase_target - current_canvas_background_gs);
+				break;
+				case SCORE_FORMULA_MAX_SUM_GS_ERASE_TARGET:
+					line_stats.score = line_stats.sum_gs_erase_target;
 				break;
 				case SCORE_FORMULA_DIFF_AVG_GS_TARGET:
 					line_stats.score =
@@ -418,6 +459,7 @@ void perform_string_art(string_art_input_t input)
 			/* TODO: FIXME */
 			line_neg.color.gs = current_canvas_background_gs *
 				fabsf(line.color.gs - current_canvas_background_gs);
+			line_neg.color.op *= input.erase_opacity_factor;
 			canvas_float_draw_line_coords(target_erase_canvas,
 				line_neg, line_plot_pixels_mid_point);
 
@@ -583,6 +625,20 @@ void perform_string_art(string_art_input_t input)
 	if (input.do_log_and_output)
 	{
 		printf("Loop time: %.4fs\n", loop_time);
+
+		const float rms = error_rms_canvas(target_canvas,
+			current_canvas_sd, current_canvas_background_gs);
+		printf("Raw RMS: %f\n", rms);
+
+		const unsigned int hd_original_resolution_factor =
+			roundf((float)current_canvas_hd.resolution / (float)input.original_resolution);
+		canvas_gs_op_t current_canvas_original_resolution =
+			canvas_gs_op_copy_downscale(current_canvas_hd, hd_original_resolution_factor);
+		canvas_float_t target_canvas_original_resolution =
+			canvas_float_copy_downscale(target_canvas_hd, hd_original_resolution_factor);
+		const float rms_original_resolution = error_rms_canvas(target_canvas_original_resolution,
+			current_canvas_original_resolution, current_canvas_background_gs);
+		printf("RMS on the original resolution: %f\n", rms_original_resolution);
 	}
 
 	if (input.do_log_and_output)

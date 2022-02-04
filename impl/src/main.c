@@ -46,8 +46,8 @@ int main(int argc, const char** argv)
 		heuristic_mix_coefs[i] = -FLT_MAX;
 	}
 	unsigned int parameter_line_pool_size = 4000;
-	unsigned int parameter_lines_per_iteration = 140;
-	float parameter_line_opacity = 0.3f;
+	unsigned int parameter_lines_per_iteration = 50;
+	float parameter_line_opacity = 1.0f;
 	unsigned int parameter_target_resolution_upscale = 4;
 	unsigned int parameter_pin_number = 256;
 
@@ -151,7 +151,8 @@ int main(int argc, const char** argv)
 	fclose(file_raw);
 
 	assert(w == h);
-	canvas_float_t input_canvas = canvas_float_init_fill(w, 0.0f);
+	const unsigned int original_resolution = w;
+	canvas_float_t input_canvas = canvas_float_init_fill(original_resolution, 0.0f);
 	for (unsigned int y = 0; y < input_canvas.resolution; y++)
 	for (unsigned int x = 0; x < input_canvas.resolution; x++)
 	{
@@ -191,7 +192,7 @@ int main(int argc, const char** argv)
 	{
 		const coords_grid_t coords_grid = {.x = x, .y = y};
 		const coords_t coords = coords_grid_to_coords(coords_grid, importance_canvas.resolution);
-		const float importance = dist(coords.x, coords.y, 0.62f, 0.57f) < 0.15f ? 1.0f : 0.01f;
+		const float importance = dist(coords.x, coords.y, 0.62f, 0.57f) < 0.15f ? 1.0f : 0.1f;
 		importance_canvas.grid[x + importance_canvas.resolution * y] = importance;
 	}
 #elif 0
@@ -214,10 +215,13 @@ int main(int argc, const char** argv)
 		.importance_canvas = importance_canvas,
 		.current_canvas_background_gs = current_canvas_background_gs,
 		.line_color = (gs_op_t){.gs = 1.0f, .op = parameter_line_opacity},
-		.error_formula = ERROR_FORMULA_DIFF_SQUARE,
-		.score_formula = SCORE_FORMULA_HEURISTIC_MIX_WITH_COEFS,
+		.random_color_gs = 0,
+		.error_formula = ERROR_FORMULA_DIFF,
+		.score_formula = SCORE_TEST, //SCORE_FORMULA_HEURISTIC_MIX_WITH_COEFS,
+		.erase_opacity_factor = 1.0f,
 		.heuristic_mix_coefs = {0}, /* Copied from heuristic_mix_coefs below. */
 		.resolution_factor = 1,
+		.original_resolution = original_resolution,
 		.pinset = pinset_generate_circle(parameter_pin_number),
 		.line_pool_length = parameter_line_pool_size,
 		.line_number_per_iteration = parameter_lines_per_iteration,

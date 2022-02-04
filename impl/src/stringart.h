@@ -17,7 +17,9 @@ typedef enum error_formula_enum_t error_formula_enum_t;
 
 enum score_formula_enum_t
 {
+	SCORE_TEST,
 	SCORE_FORMULA_DIFF_AVG_GS_ERASE_TARGET,
+	SCORE_FORMULA_MAX_SUM_GS_ERASE_TARGET,
 	SCORE_FORMULA_DIFF_AVG_GS_TARGET,
 	SCORE_FORMULA_NEG_ERROR_DELTA,
 	SCORE_FORMULA_NEG_ERROR_DELTA_PLUS_DELTA_SD,
@@ -49,10 +51,13 @@ struct string_art_input_t
 	canvas_float_t importance_canvas;
 	float current_canvas_background_gs;
 	gs_op_t line_color;
+	int random_color_gs;
 	error_formula_enum_t error_formula;
 	score_formula_enum_t score_formula;
 	float heuristic_mix_coefs[SCORE_HEURISTIC_MIX_COEFS_NUMBER];
+	float erase_opacity_factor;
 	unsigned int resolution_factor;
+	unsigned int original_resolution;
 	pinset_t pinset;
 	unsigned int line_pool_length;
 	unsigned int line_number_per_iteration;
@@ -77,6 +82,7 @@ struct line_stats_t
 	float delta_sd;
 	float delta_hd_corrected;
 	float avg_gs_erase_target;
+	float sum_gs_erase_target;
 	float avg_gs_target;
 	float score;
 };
