@@ -50,18 +50,51 @@ std::uint32_t zorder_mapping(GridCoords coords, unsigned int side)
 	return spreaded_x | (spreaded_y << 1);
 }
 
+
 GridCoords::GridCoords(std::uint16_t x, std::uint16_t y):
 	x(x), y(y)
 {
 	;
 }
 
+
+template<typename T>
+PixelGs<T>::PixelGs()
+{
+	;
+}
+
+template<typename T>
+PixelGs<T>::PixelGs(T gs):
+	gs(gs)
+{
+	;
+}
+
+template class PixelGs<std::uint8_t>;
+
+template<typename T>
+PixelRgba<T>::PixelRgba()
+{
+	;
+}
+
+template<typename T>
+PixelRgba<T>::PixelRgba(T r, T g, T b, T a):
+	rgba{r, g, b, a}
+{
+	;
+}
+
+template class PixelRgba<std::uint8_t>;
+
+
 template<typename CellType, Mapping mapping>
 Grid<CellType, mapping>::Grid(unsigned int side):
 	side(side), data(new CellType[side * side])
 {
 	assert(is_power_of_two(this->side));
-	assert(this->side <= (1 << 16));
+	assert(this->side <= GridCoords::coord_max_value);
 }
 
 template<typename CellType, Mapping mapping>
@@ -92,6 +125,13 @@ CellType& Grid<CellType, mapping>::access(GridCoords coords)
 	return this->data[index];
 }
 
-template class Grid<std::uint8_t>;
+template<typename CellType, Mapping mapping>
+void const* Grid<CellType, mapping>::raw_data()
+{
+	return &this->data[0];
+}
+
+template class Grid<PixelGs<std::uint8_t>, row_mapping>;
+template class Grid<PixelRgba<std::uint8_t>, row_mapping>;
 
 } /* sart */
