@@ -1,11 +1,12 @@
 
-#ifndef HEADER_RANDOM_
-#define HEADER_RANDOM_
+#ifndef HEADER_GRID_
+#define HEADER_GRID_
 
 #include <cstdint>
 #include <array>
 
-namespace sart {
+namespace sart
+{
 
 /* Coordinates of a cell in a grid. */
 class GridCoords
@@ -87,4 +88,4 @@ public:
 
 } /* sart */
 
-#endif /* HEADER_RANDOM_ */
+#endif /* HEADER_GRID_ */

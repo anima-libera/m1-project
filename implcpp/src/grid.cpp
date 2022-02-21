@@ -4,7 +4,8 @@
 #include <algorithm>
 #include <iostream>
 
-namespace sart {
+namespace sart
+{
 
 static inline bool is_power_of_two(unsigned int x)
 {
