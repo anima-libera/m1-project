@@ -1,10 +1,11 @@
 
 #include "grid.hpp"
+#include "bitmap.hpp"
 #include <cassert>
 #include <algorithm>
 #include <iostream>
 
-namespace sart
+namespace StringArtRennes
 {
 
 static inline bool is_power_of_two(unsigned int x)
@@ -53,9 +54,19 @@ std::uint32_t zorder_mapping(GridCoords coords, unsigned int side)
 
 
 GridCoords::GridCoords(std::uint16_t x, std::uint16_t y):
-	x(x), y(y)
+	x{x}, y{y}
 {
 	;
+}
+
+bool GridCoords::operator==(GridCoords const& right) const
+{
+	return this->x == right.x && this->y == right.y;
+}
+
+bool GridCoords::operator!=(GridCoords const& right) const
+{
+	return not (*this == right);
 }
 
 
@@ -67,7 +78,7 @@ PixelGs<T>::PixelGs()
 
 template<typename T>
 PixelGs<T>::PixelGs(T gs):
-	gs(gs)
+	gs{gs}
 {
 	;
 }
@@ -100,7 +111,7 @@ Grid<CellType, mapping>::Grid(unsigned int side):
 
 template<typename CellType, Mapping mapping>
 Grid<CellType, mapping>::Grid(Grid const& grid):
-	side(grid.side), data(new CellType[grid.side * grid.side])
+	side{grid.side}, data{new CellType[grid.side * grid.side]}
 {
 	std::copy(grid.data, grid.data + grid.side * grid.side, this->data);
 	/* Elements of this->data are constructed twice, aren't they?
@@ -121,18 +132,34 @@ CellType& Grid<CellType, mapping>::access(GridCoords coords)
 	assert(0 <= coords.x && coords.x < this->side);
 	assert(0 <= coords.y && coords.y < this->side);
 
-	std::uint32_t index = mapping(coords, this->side);
+	std::uint32_t const index = mapping(coords, this->side);
 	//std::cout << "Access index " << index << " / " << this->side * this->side << std::endl;
 	return this->data[index];
 }
 
 template<typename CellType, Mapping mapping>
-void const* Grid<CellType, mapping>::raw_data()
+void const* Grid<CellType, mapping>::raw_data() const
 {
 	return &this->data[0];
+}
+
+template<typename CellType, Mapping mapping>
+void Grid<CellType, mapping>::output_as_bitmap(char const* output_file_path) const
+{
+	//if constexpr (std::is_same_v<decltype(*this), BitmapComatibleGrid>)
+	/* Note: For some reason the above condition is not equivalent to the following one. */
+	if constexpr (std::is_same_v<CellType, PixelRgba<std::uint8_t>> && mapping == row_mapping)
+	{
+		output_bitmap(*this, output_file_path);
+	}
+	else
+	{
+		std::cerr << "Error: Cannot output grid as bitmap" << std::endl;
+		assert(false);
+	}
 }
 
 template class Grid<PixelGs<std::uint8_t>, row_mapping>;
 template class Grid<PixelRgba<std::uint8_t>, row_mapping>;
 
-} /* sart */
+} /* StringArtRennes */

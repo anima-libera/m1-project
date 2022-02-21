@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <array>
 
-namespace sart
+namespace StringArtRennes
 {
 
 /* Coordinates of a cell in a grid. */
@@ -20,6 +20,8 @@ public:
 
 public:
 	GridCoords(std::uint16_t x, std::uint16_t y);
+	bool operator==(GridCoords const& right) const;
+	bool operator!=(GridCoords const& right) const;
 };
 
 
@@ -70,7 +72,7 @@ template<typename CellType, Mapping mapping_parameter = row_mapping>
 class Grid
 {
 public:
-	static inline Mapping mapping = mapping_parameter;
+	static inline constexpr Mapping mapping = mapping_parameter;
 
 public:
 	unsigned int side;
@@ -83,9 +85,11 @@ public:
 	~Grid();
 	
 	CellType& access(GridCoords coords);
-	void const* raw_data();
+	void const* raw_data() const;
+
+	void output_as_bitmap(char const* output_file_path) const;
 };
 
-} /* sart */
+} /* StringArtRennes */
 
 #endif /* HEADER_GRID_ */

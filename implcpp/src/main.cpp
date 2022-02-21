@@ -1,13 +1,14 @@
 
 #include "grid.hpp"
 #include "bitmap.hpp"
+#include "line.hpp"
 #include <iostream>
 #include <string>
 #include <fstream>
 #include <cstring>
 #include <optional>
 
-using namespace sart;
+using namespace StringArtRennes;
 
 /* The collection of all the inputs and parameters that are configurable by the user. */
 class Config
@@ -22,7 +23,7 @@ public:
 
 Config::Config(int argc, char** argv)
 {
-	const unsigned int argc_unsigned = static_cast<unsigned int>(argc);
+	unsigned int const argc_unsigned = static_cast<unsigned int>(argc);
 	unsigned int i = 1;
 	while (i < argc_unsigned)
 	{
@@ -62,7 +63,7 @@ LoadedPictureGrid load_picture(std::string const& picture_name)
 	std::cout << "Loading picture \"" << picture_name << "\"" << std::endl;
 
 	int w, h;
-	std::string filepath_dim = "../../impl/rawpics/"s + picture_name + ".dim"s;
+	std::string const filepath_dim = "../../impl/rawpics/"s + picture_name + ".dim"s;
 	std::cout << "Reading picture dimensions from \"" << filepath_dim << "\"" << std::endl;
 	std::ifstream file_dim{filepath_dim};
 	if (not file_dim.is_open())
@@ -81,9 +82,9 @@ LoadedPictureGrid load_picture(std::string const& picture_name)
 			<< "Picture dimensions do not describe a square" << std::endl;
 		std::exit(EXIT_FAILURE);
 	}
-	unsigned int side = w;
+	unsigned int const side = w;
 
-	std::string filepath_raw = "../../impl/rawpics/"s + picture_name + ".raw"s;
+	std::string const filepath_raw = "../../impl/rawpics/"s + picture_name + ".raw"s;
 	std::cout << "Reading picture data from \"" << filepath_raw << "\"" << std::endl;
 	std::ifstream file_raw{filepath_raw, std::ios::binary};
 	if (not file_raw.is_open())
@@ -94,7 +95,7 @@ LoadedPictureGrid load_picture(std::string const& picture_name)
 	}
 
 	file_raw.seekg(0, std::ios::end);
-	unsigned int raw_data_size = file_raw.tellg();
+	unsigned int const raw_data_size = file_raw.tellg();
 	file_raw.seekg(0, std::ios::beg);
 	std::uint8_t* raw_data = new std::uint8_t[raw_data_size];
 	file_raw.read(reinterpret_cast<char*>(raw_data), raw_data_size);
@@ -108,8 +109,8 @@ LoadedPictureGrid load_picture(std::string const& picture_name)
 			<< std::endl;
 		std::exit(EXIT_FAILURE);
 	}
-	unsigned int raw_pixel_data_size = raw_data_size / (side * side);
-	unsigned int raw_pixel_count = raw_data_size / raw_pixel_data_size;
+	unsigned int const raw_pixel_data_size = raw_data_size / (side * side);
+	unsigned int const raw_pixel_count = raw_data_size / raw_pixel_data_size;
 	if (raw_pixel_count != side * side)
 	{
 		std::cerr << "Error: "
@@ -119,16 +120,17 @@ LoadedPictureGrid load_picture(std::string const& picture_name)
 		std::exit(EXIT_FAILURE);
 	}
 
-	LoadedPictureGrid loaded_picture(side);
+	LoadedPictureGrid loaded_picture{side};
 	for (unsigned int i = 0; i < raw_pixel_count; i++)
 	{
-		std::uint8_t raw_pixel_data = raw_data[i * raw_pixel_data_size];
+		std::uint8_t const raw_pixel_data = raw_data[i * raw_pixel_data_size];
 		loaded_picture.access(row_mapping_inverse(i, side)) = raw_pixel_data;
 	}
 	std::cout << "Picture loaded" << std::endl;
 
 	return loaded_picture;
 }
+
 
 int main(int argc, char** argv)
 {
@@ -145,10 +147,24 @@ int main(int argc, char** argv)
 				static_cast<std::uint16_t>(x % input_picture.side),
 				static_cast<std::uint16_t>(y % input_picture.side)}
 			).gs;
-		bitmap_grid.access(GridCoords(x, y)) =
+		bitmap_grid.access(GridCoords{x, y}) =
 			PixelRgba<std::uint8_t>{gs, gs, gs, 255};
 	}
-	output_bitmap(bitmap_grid, "test.bmp");
+	bitmap_grid.output_as_bitmap("test.bmp");
+
+	BitmapComatibleGrid bitmap_grid_2{input_picture.side};
+	for (unsigned int y = 0; y < bitmap_grid_2.side; y++)
+	for (unsigned int x = 0; x < bitmap_grid_2.side; x++)
+	{
+		bitmap_grid_2.access(GridCoords{x, y}) =
+			PixelRgba<std::uint8_t>{255, 255, 255, 255};
+	}
+	for (auto coords : RawLine{GridCoords{50, 50}, GridCoords{100, 200}})
+	{
+		bitmap_grid_2.access(coords) =
+			PixelRgba<std::uint8_t>{0, 0, 0, 255};
+	}
+	bitmap_grid_2.output_as_bitmap("test_2.bmp");
 
 	return 0;
 }

@@ -5,7 +5,7 @@
 #include <fstream>
 #include <climits>
 
-namespace sart
+namespace StringArtRennes
 {
 
 static_assert(sizeof(PixelRgba<std::uint8_t>) == 4, "Bug");
@@ -38,7 +38,7 @@ public:
 	uint32_t important_color_count; /* Can be 0. */
 };
 
-void output_bitmap(BitmapComatibleGrid& grid, std::string const& output_file_path)
+void output_bitmap(BitmapComatibleGrid const& grid, char const* output_file_path)
 {
 	std::cout << "Outputing picture as bitmap \"" << output_file_path << "\"" << std::endl;
 
@@ -50,9 +50,9 @@ void output_bitmap(BitmapComatibleGrid& grid, std::string const& output_file_pat
 		std::exit(EXIT_FAILURE);
 	}
 
-	const unsigned int magic_number_size = 2;
-	const unsigned int channel_mask_size = 3 * sizeof(PixelRgba<std::uint8_t>);
-	const unsigned int image_size = grid.side * grid.side * sizeof(PixelRgba<std::uint8_t>);
+	unsigned int const magic_number_size = 2;
+	unsigned int const channel_mask_size = 3 * sizeof(PixelRgba<std::uint8_t>);
+	unsigned int const image_size = grid.side * grid.side * sizeof(PixelRgba<std::uint8_t>);
 
 	/* Magic number. */
 	file.write("BM", magic_number_size);
@@ -81,9 +81,9 @@ void output_bitmap(BitmapComatibleGrid& grid, std::string const& output_file_pat
 	file.write(reinterpret_cast<char const*>(&header), sizeof header);
 
 	/* Channel masks. */
-	const PixelRgba<std::uint8_t> mask_r{0xff, 0x00, 0x00, 0x00};
-	const PixelRgba<std::uint8_t> mask_g{0x00, 0xff, 0x00, 0x00};
-	const PixelRgba<std::uint8_t> mask_b{0x00, 0x00, 0xff, 0x00};
+	PixelRgba<std::uint8_t> const mask_r{0xff, 0x00, 0x00, 0x00};
+	PixelRgba<std::uint8_t> const mask_g{0x00, 0xff, 0x00, 0x00};
+	PixelRgba<std::uint8_t> const mask_b{0x00, 0x00, 0xff, 0x00};
 	file.write(reinterpret_cast<char const*>(&mask_r), sizeof(PixelRgba<std::uint8_t>));
 	file.write(reinterpret_cast<char const*>(&mask_g), sizeof(PixelRgba<std::uint8_t>));
 	file.write(reinterpret_cast<char const*>(&mask_b), sizeof(PixelRgba<std::uint8_t>));
@@ -95,4 +95,4 @@ void output_bitmap(BitmapComatibleGrid& grid, std::string const& output_file_pat
 		grid.side * grid.side * sizeof(PixelRgba<std::uint8_t>));
 }
 
-} /* sart */
+} /* StringArtRennes */
