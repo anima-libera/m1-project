@@ -53,6 +53,12 @@ std::uint32_t zorder_mapping(GridCoords coords, unsigned int side)
 }
 
 
+GridCoords::GridCoords():
+	x{0}, y{0}
+{
+	;
+}
+
 GridCoords::GridCoords(std::uint16_t x, std::uint16_t y):
 	x{x}, y{y}
 {
@@ -83,7 +89,37 @@ PixelGs<T>::PixelGs(T gs):
 	;
 }
 
+template<typename T>
+PixelGs<T>::operator PixelRgba<std::uint8_t>() const
+{
+	return PixelRgba<std::uint8_t>{this->gs, this->gs, this->gs, 255};
+}
+
 template class PixelGs<std::uint8_t>;
+
+template<typename T>
+PixelCount<T>::PixelCount():
+	count{0}
+{
+	;
+}
+
+template<typename T>
+PixelCount<T>::PixelCount(T count):
+	count{count}
+{
+	;
+}
+
+template<typename T>
+PixelCount<T>::operator PixelRgba<std::uint8_t>() const
+{
+	std::uint8_t const gs = this->count == 0 ? 255 : 0;
+	return PixelRgba<std::uint8_t>{gs, gs, gs, 255};
+}
+
+template class PixelCount<std::uint8_t>;
+template class PixelCount<std::uint16_t>;
 
 template<typename T>
 PixelRgba<T>::PixelRgba()
@@ -129,13 +165,38 @@ Grid<CellType, mapping>::~Grid()
 template<typename CellType, Mapping mapping>
 CellType& Grid<CellType, mapping>::access(GridCoords coords)
 {
-	assert(0 <= coords.x && coords.x < this->side);
-	assert(0 <= coords.y && coords.y < this->side);
+	if ((not (0 <= coords.x && coords.x < this->side)) ||
+		(not (0 <= coords.y && coords.y < this->side)))
+	{
+		//std::cout << "Warning: Access at coords (" << coords.x << ", " << coords.y << ") "
+		//	<< "on a grid of size " << this->side << "x" << this->side << std::endl;
+		//return this->data[0];
+		assert(false);
+	}
 
 	std::uint32_t const index = mapping(coords, this->side);
-	//std::cout << "Access index " << index << " / " << this->side * this->side << std::endl;
 	return this->data[index];
 }
+
+template<typename CellType, Mapping mapping>
+CellType const& Grid<CellType, mapping>::access(GridCoords coords) const
+{
+	if ((not (0 <= coords.x && coords.x < this->side)) ||
+		(not (0 <= coords.y && coords.y < this->side)))
+	{
+		//std::cout << "Warning: Access at coords (" << coords.x << ", " << coords.y << ") "
+		//	<< "on a grid of size " << this->side << "x" << this->side << std::endl;
+		//return this->data[0];
+		assert(false);
+	}
+
+	std::uint32_t const index = mapping(coords, this->side);
+	return this->data[index];
+}
+
+/* TODO: Remove code duplication between the two Grid::access definitions. */
+
+/* TODO: Better handling of out-of-bounds access. */
 
 template<typename CellType, Mapping mapping>
 void const* Grid<CellType, mapping>::raw_data() const
@@ -154,12 +215,27 @@ void Grid<CellType, mapping>::output_as_bitmap(char const* output_file_path) con
 	}
 	else
 	{
-		std::cerr << "Error: Cannot output grid as bitmap" << std::endl;
-		assert(false);
+		/* If the grid is not bitmap compatible,
+		 * then convert it to a local bitmap compatible copy. */
+		BitmapComatibleGrid bitmap{this->side};
+		for (unsigned int y = 0; y < this->side; y++)
+		for (unsigned int x = 0; x < this->side; x++)
+		{
+			bitmap.access(GridCoords{x, y}) =
+				static_cast<PixelRgba<std::uint8_t>>(this->access(GridCoords{x, y}));
+		}
+		
+		/* This method call should not be recursive.
+		 * If execution ends up here again in the nested call,
+		 * then it will recursively call itself in an infinite loop
+		 * that will fill up the heap and the stack... */
+		bitmap.output_as_bitmap(output_file_path);
 	}
 }
 
 template class Grid<PixelGs<std::uint8_t>, row_mapping>;
+template class Grid<PixelCount<std::uint8_t>, row_mapping>;
+template class Grid<PixelCount<std::uint16_t>, row_mapping>;
 template class Grid<PixelRgba<std::uint8_t>, row_mapping>;
 
 } /* StringArtRennes */

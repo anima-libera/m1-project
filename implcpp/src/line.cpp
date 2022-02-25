@@ -1,6 +1,7 @@
 
 #include "line.hpp"
 #include <cmath>
+#include <iostream>
 
 namespace StringArtRennes
 {
@@ -12,7 +13,6 @@ RawLine::RawLine(GridCoords a, GridCoords b):
 }
 
 RawLine::Iterator::Iterator():
-	head{0, 0}, end{0, 0},
 	is_past_the_end{true}
 {
 	;
@@ -41,6 +41,19 @@ bool RawLine::Iterator::operator!=(Iterator const& right) const
 	return not (*this == right);
 }
 
+template<typename T>
+static inline T square(T x)
+{
+	return x * x;
+}
+
+static inline float distance(GridCoords a, GridCoords b)
+{
+	return std::sqrt(
+		square(static_cast<int>(a.x) - static_cast<int>(b.x)) +
+		square(static_cast<int>(a.y) - static_cast<int>(b.y)));
+}
+
 RawLine::Iterator& RawLine::Iterator::operator++()
 {
 	/* Mid-point line drawing loop iteration, stepping forward a single pixel. */
@@ -50,15 +63,23 @@ RawLine::Iterator& RawLine::Iterator::operator++()
 	}
 	else
 	{
-		if (this->error * 2 >= this->dy)
+		auto dist_before = distance(this->head, this->end);
+		int const error2 = this->error * 2;
+		if (error2 >= this->dy)
 		{
 			this->error += this->dy;
 			this->head.x += this->sx;
 		}
-		if (this->error * 2 <= this->dx)
+		if (error2 <= this->dx)
 		{
 			this->error += this->dx;
 			this->head.y += this->sy;
+		}
+		auto dist_after = distance(this->head, this->end);
+		if (dist_after > dist_before)
+		{
+			std::cout << "ono " << this->end.x << ", " << this->end.y << std::endl;
+			std::exit(-8);
 		}
 	}
 	return *this;

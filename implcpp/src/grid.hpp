@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <array>
+#include <type_traits>
 
 namespace StringArtRennes
 {
@@ -19,6 +20,7 @@ public:
 	std::uint16_t y;
 
 public:
+	GridCoords();
 	GridCoords(std::uint16_t x, std::uint16_t y);
 	bool operator==(GridCoords const& right) const;
 	bool operator!=(GridCoords const& right) const;
@@ -37,19 +39,41 @@ std::uint32_t zorder_mapping(GridCoords coords, unsigned int side);
 
 
 template<typename T>
+class PixelRgba;
+
+template<typename T>
 class PixelGs
 {
+	static_assert(std::is_arithmetic_v<T>);
+
 public:
 	T gs; /* Grayscale value. */
 
 public:
 	PixelGs();
 	PixelGs(T gs);
+	explicit operator PixelRgba<std::uint8_t>() const;
+};
+
+template<typename T>
+class PixelCount
+{
+	static_assert(std::is_integral_v<T>);
+
+public:
+	T count; /* Some count. */
+
+public:
+	PixelCount();
+	PixelCount(T count);
+	explicit operator PixelRgba<std::uint8_t>() const;
 };
 
 template<typename T>
 class PixelRgba
 {
+	static_assert(std::is_arithmetic_v<T>);
+
 public:
 	static inline unsigned int R = 0;
 	static inline unsigned int G = 1;
@@ -85,6 +109,7 @@ public:
 	~Grid();
 	
 	CellType& access(GridCoords coords);
+	CellType const& access(GridCoords coords) const;
 	void const* raw_data() const;
 
 	void output_as_bitmap(char const* output_file_path) const;
