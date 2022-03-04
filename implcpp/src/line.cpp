@@ -63,7 +63,6 @@ RawLine::Iterator& RawLine::Iterator::operator++()
 	}
 	else
 	{
-		auto dist_before = distance(this->head, this->end);
 		int const error2 = this->error * 2;
 		if (error2 >= this->dy)
 		{
@@ -74,12 +73,6 @@ RawLine::Iterator& RawLine::Iterator::operator++()
 		{
 			this->error += this->dx;
 			this->head.y += this->sy;
-		}
-		auto dist_after = distance(this->head, this->end);
-		if (dist_after > dist_before)
-		{
-			std::cout << "ono " << this->end.x << ", " << this->end.y << std::endl;
-			std::exit(-8);
 		}
 	}
 	return *this;

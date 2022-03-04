@@ -13,6 +13,8 @@
 #include <vector>
 #include <algorithm>
 #include <chrono>
+#include <sstream>
+#include <functional>
 
 using namespace StringArtRennes;
 
@@ -21,6 +23,7 @@ class Config
 {
 public:
 	std::optional<std::string> input_picture_name;
+	std::optional<unsigned int> hd_sd_factor;
 
 public:
 	/* Constructor taking the raw arguments of main. */
@@ -49,6 +52,25 @@ Config::Config(int argc, char** argv)
 			i += 2;
 			continue;
 		}
+		else if (strcmp(argv[i], "-f") == 0)
+		{
+			if (i + 1 < argc_unsigned)
+			{
+				std::istringstream arg{argv[i + 1]};
+				unsigned int arg_value;
+				arg >> arg_value;
+				this->hd_sd_factor = arg_value;
+			}
+			else
+			{
+				std::cerr << "Error: "
+					<< "Command line option \"" << argv[i] << "\" "
+					<< "expects a number to follow it as an argument" << std::endl;
+				std::exit(EXIT_FAILURE);
+			}
+			i += 2;
+			continue;
+		}
 		else
 		{
 			std::cerr << "Error: "
@@ -59,7 +81,7 @@ Config::Config(int argc, char** argv)
 	}
 }
 
-using LoadedPictureGrid = Grid<PixelGs<std::uint8_t>, row_mapping>;
+using LoadedPictureGrid = Grid<PixelGs<std::uint8_t>, MappingRow>;
 
 /* Loads the picture of the given name in memory and returns it as a grid of pixels. */
 LoadedPictureGrid load_picture(std::string const& picture_name)
@@ -130,7 +152,7 @@ LoadedPictureGrid load_picture(std::string const& picture_name)
 	for (unsigned int i = 0; i < raw_pixel_count; i++)
 	{
 		std::uint8_t const raw_pixel_data = raw_data[i * raw_pixel_data_size];
-		loaded_picture.access(row_mapping_inverse(i, side)) = raw_pixel_data;
+		loaded_picture.access(MappingRow::index_to_coords(i, side)) = raw_pixel_data;
 	}
 	delete[] raw_data;
 	std::cout << "Picture loaded" << std::endl;
@@ -145,10 +167,16 @@ static inline T square(T x)
 	return x * x;
 }
 
-using TypeGsSd = std::uint8_t;
-using TypeCountHd = std::uint16_t;
 
-float compute_pixel_sd_error_squared(
+using MappingMain = MappingRow;
+using TypeGsSd = std::uint8_t;
+using GridGsSd = Grid<PixelGs<TypeGsSd>, MappingMain>;
+using TypeCountHd = std::uint16_t;
+using GridCountHd = Grid<PixelCount<TypeCountHd>, MappingMain>;
+
+/* Returns the squared normalized distance between the given grayscale values.
+ * The result is between 0.0f and 1.0f (included). */
+float compute_pixel_sd_error_snd(
 	PixelGs<TypeGsSd> target_pixel_sd,
 	PixelGs<TypeGsSd> pixel_sd)
 {
@@ -158,65 +186,115 @@ float compute_pixel_sd_error_squared(
 		static_cast<float>(pixel_sd.gs) / max_gs_sd);
 }
 
-float compute_pixel_sd_error_delta(
+/* Retruns the delta (the variation) of the squared normalized distance between the
+ * target garyscale value and the other one when the other one changes from old to new.
+ * The result is between -1.0f and 1.0f (included). */
+float compute_pixel_sd_error_snd_delta(
 	PixelGs<TypeGsSd> target_pixel_sd,
 	PixelGs<TypeGsSd> old_pixel_sd,
 	PixelGs<TypeGsSd> new_pixel_sd)
 {
-	float const old_error = compute_pixel_sd_error_squared(target_pixel_sd, old_pixel_sd);
-	float const new_error = compute_pixel_sd_error_squared(target_pixel_sd, new_pixel_sd);
+	float const old_error = compute_pixel_sd_error_snd(target_pixel_sd, old_pixel_sd);
+	float const new_error = compute_pixel_sd_error_snd(target_pixel_sd, new_pixel_sd);
 	return new_error - old_error;
 }
 
-float compute_rms(
-	Grid<PixelGs<TypeGsSd>, row_mapping> const& target_grid_sd,
-	Grid<PixelGs<TypeGsSd>, row_mapping> const& grid_sd)
+/* Returns the root-mean-square deviation between the given grids of pixel.
+ * The result is between 0.0f and 1.0f (included). */
+float compute_grid_rms(
+	GridGsSd const& target_grid_sd,
+	GridGsSd const& grid_sd)
 {
+	assert(target_grid_sd.side == grid_sd.side);
+	unsigned int const side = target_grid_sd.side;
+
 	float error_acc = 0.0f;
-	for (unsigned int y = 0; y < target_grid_sd.side; y++)
-	for (unsigned int x = 0; x < target_grid_sd.side; x++)
+	for (GridCoords coords : RawRect{side})
 	{
-		error_acc += compute_pixel_sd_error_squared(
-			target_grid_sd.access(GridCoords{x, y}),
-			grid_sd.access(GridCoords{x, y}));
+		error_acc += compute_pixel_sd_error_snd(
+			target_grid_sd.access(coords),
+			grid_sd.access(coords));
 	}
-	float const pixel_count = target_grid_sd.side * target_grid_sd.side;
+	float const pixel_count = side * side;
 	return std::sqrt(error_acc / pixel_count);
 }
 
-TypeGsSd change_gs(TypeGsSd gs, unsigned int f, bool increment)
+/* Returns a new grid every pixel of which represent the error
+ * between the two analog pixels of the two given grids. */
+GridGsSd compute_grid_error_as_grid(
+	GridGsSd const& target_grid_sd,
+	GridGsSd const& grid_sd)
+{
+	assert(target_grid_sd.side == grid_sd.side);
+	unsigned int const side = target_grid_sd.side;
+
+	constexpr float max_gs_sd = std::numeric_limits<TypeGsSd>::max();
+	GridGsSd error_grid_sd{side, [&](GridCoords coords){
+		float const error = compute_pixel_sd_error_snd(
+			target_grid_sd.access(coords),
+			grid_sd.access(coords));
+		return static_cast<TypeGsSd>(error * max_gs_sd);
+	}};
+	return error_grid_sd;
+}
+
+/* Returns the given grayscale value but incremented (or decremented) to the nearest used value.
+ * The set of used grayscale values depend on the hd_sd_factor.
+ * If increment is false, then a decrementation is performed. */
+TypeGsSd increment_or_decrement_gs_value(TypeGsSd gs, unsigned int hd_sd_factor, bool increment)
 {
 	constexpr float max_gs_sd = std::numeric_limits<TypeGsSd>::max();
 	float const delta_sign = increment ? 1.0f : -1.0f;
-	float const delta = max_gs_sd / static_cast<float>(f * f) * delta_sign;
+	float const delta = max_gs_sd / static_cast<float>(square(hd_sd_factor)) * delta_sign;
 	float const new_gs = static_cast<float>(gs) + delta;
 	float const new_gs_rounded_clamped = std::max(0.0f, std::min(max_gs_sd, std::round(new_gs)));
 	return static_cast<TypeGsSd>(new_gs_rounded_clamped);
 }
 
-std::pair<float, bool> compute_un_error_delta_sd(
-	Grid<PixelGs<TypeGsSd>, row_mapping> const& input_sd,
-	Grid<PixelGs<TypeGsSd>, row_mapping> const& grid_sd,
-	Grid<PixelCount<TypeCountHd>, row_mapping> const& grid_hd,
-	RawLine line_hd,
-	bool erase)
+inline TypeGsSd increment_gs_value(TypeGsSd gs, unsigned int hd_sd_factor)
 {
-	unsigned int const f = grid_hd.side / grid_sd.side;
-	GridCoords last_coords_sd = GridCoords{line_hd.a.x / f, line_hd.a.y / f};
+	return increment_or_decrement_gs_value(gs, hd_sd_factor, true);
+}
+
+inline TypeGsSd decrement_gs_value(TypeGsSd gs, unsigned int hd_sd_factor)
+{
+	return increment_or_decrement_gs_value(gs, hd_sd_factor, false);
+}
+
+
+/* Returns a pair (error_delta, is_possible) about what would happen if we were to
+ * draw (or erase if the erase parameter is true) the given line_hd on the given grid_hd
+ * that would be kept in sync with the given grid_sd.
+ * The error_delta result is how would change the error if the line was to be drawn/erased.
+ * The is_possible result is false iff the line must not be drawn/erased (so that some
+ * important invariant is not violated); it should not happen, but we never know.
+ * In case is_possible is false, then error_delta is garbage (and would be irrelevant anyway). */
+std::pair<float, bool> compute_un_error_delta_sd(
+	GridGsSd const& target_sd, GridGsSd const& grid_sd, GridCountHd const& grid_hd,
+	RawLine line_hd, bool erase)
+{
+	unsigned int const hd_sd_ratio = grid_hd.side / grid_sd.side;
+
+	/* Lasy changes to apply to some SD pixel when it won't be accessed anymore.
+	 * When these are applied (by update_un_error_delta_sd) it means that the modified SD pixel
+	 * is the last one being accessed (while a new one is beginning to be accessed or when
+	 * the computation is done). */
+	GridCoords last_coords_sd = GridCoords{line_hd.a.x / hd_sd_ratio, line_hd.a.y / hd_sd_ratio};
 	TypeGsSd last_new_gs_sd = grid_sd.access(last_coords_sd).gs;
+	
 	float un_error_delta_sd = 0;
-	constexpr float max_gs_sd =
-		std::numeric_limits<decltype(grid_sd.access(last_coords_sd).gs)>::max();
-	auto update_un_error_delta_sd = [&]{
-		float const local_un_error_delta_sd = compute_pixel_sd_error_delta(
-			input_sd.access(last_coords_sd),
+	auto const update_un_error_delta_sd = [&]{
+		float const local_un_error_delta_sd = compute_pixel_sd_error_snd_delta(
+			target_sd.access(last_coords_sd),
 			grid_sd.access(last_coords_sd),
 			PixelGs<TypeGsSd>{last_new_gs_sd});
 		un_error_delta_sd += local_un_error_delta_sd;
 	};
 	for (GridCoords coords : line_hd)
 	{
-		GridCoords coords_sd = GridCoords{coords.x / f, coords.y / f};
+		/* If we change of SD pixel,
+		 * then apply the lazy modifications accumulated on the last SD pxiel. */
+		GridCoords coords_sd = GridCoords{coords.x / hd_sd_ratio, coords.y / hd_sd_ratio};
 		if (coords_sd != last_coords_sd)
 		{
 			update_un_error_delta_sd();
@@ -224,21 +302,30 @@ std::pair<float, bool> compute_un_error_delta_sd(
 			last_new_gs_sd = grid_sd.access(coords_sd).gs;
 			last_coords_sd = coords_sd;
 		}
+
 		constexpr auto max_count =
 			std::numeric_limits<decltype(grid_hd.access(coords).count)>::max();
 		if (((not erase) && grid_hd.access(coords).count == max_count) ||
 			(erase && grid_hd.access(coords).count == 0))
 		{
-			/* We want to avoid overflowing the overlap count on pixels. */
+			/* We want to avoid overflowing the overlap count on pixels.
+			 * The current pixel cannot be modified in the indented way here and forcing it
+			 * would lead us to lose the count on it, breaking an important invariant and
+			 * possibly break the sync between grid_hd and grid_sd in the furure
+			 * (which is to be avoided at all costs).
+			 * We thus return a false second member to signify that this line
+			 * is not to be drawn (or erased). */
 			return std::make_pair(0, false);
 		}
 		else if ((not erase) && grid_hd.access(coords).count == 0)
 		{
-			last_new_gs_sd = change_gs(last_new_gs_sd, f, false);
+			/* One HD pixel would turn from white to black. */
+			last_new_gs_sd = decrement_gs_value(last_new_gs_sd, hd_sd_ratio);
 		}
 		else if (erase && grid_hd.access(coords).count > 0)
 		{
-			last_new_gs_sd = change_gs(last_new_gs_sd, f, true);
+			/* One HD pixel would turn from black to white. */
+			last_new_gs_sd = increment_gs_value(last_new_gs_sd, hd_sd_ratio);
 		}
 	}
 	update_un_error_delta_sd();
@@ -246,38 +333,43 @@ std::pair<float, bool> compute_un_error_delta_sd(
 	return std::make_pair(un_error_delta_sd, true);
 }
 
+/* Draw (or erase if the erase parameter is true) the given line_hd on the given grid_hd
+ * that is kept in sync with the given grid_sd. */
 void draw(
-	Grid<PixelGs<TypeGsSd>, row_mapping>& input_sd,
-	Grid<PixelGs<TypeGsSd>, row_mapping>& grid_sd,
-	Grid<PixelCount<TypeCountHd>, row_mapping>& grid_hd,
-	RawLine line_hd,
-	bool erase)
+	GridGsSd& grid_sd, GridCountHd& grid_hd,
+	RawLine line_hd, bool erase)
 {
-	unsigned int const f = grid_hd.side / grid_sd.side;
+	unsigned int const hd_sd_ratio = grid_hd.side / grid_sd.side;
 	for (GridCoords coords : line_hd)
 	{
-		GridCoords coords_sd = GridCoords{coords.x / f, coords.y / f};
-		constexpr auto max_gs_sd =
-			std::numeric_limits<decltype(grid_sd.access(coords_sd).gs)>::max();
+		GridCoords const coords_sd = GridCoords{coords.x / hd_sd_ratio, coords.y / hd_sd_ratio};
 		constexpr auto max_count =
 			std::numeric_limits<decltype(grid_hd.access(coords).count)>::max();
 		if (((not erase) && grid_hd.access(coords).count == max_count) ||
 			(erase && grid_hd.access(coords).count == 0))
 		{
+			/* This situaton should not happen if we do not draw/erase lines diagnosed
+			 * as impossible by compute_un_error_delta_sd. See the code of this function
+			 * for an explaination of why this must not be forced.
+			 * Reaching this point should be considered as a bug. */
 			assert(false);
 		}
 		else if (not erase)
 		{
 			if (grid_hd.access(coords).count++ == 0)
 			{
-				grid_sd.access(coords_sd).gs = change_gs(grid_sd.access(coords_sd).gs, f, false);
+				/* Keep in sync the grid_sd as one HD pixel turns from white to black. */
+				grid_sd.access(coords_sd).gs = decrement_gs_value(
+					grid_sd.access(coords_sd).gs, hd_sd_ratio);
 			}
 		}
 		else if (erase)
 		{
 			if (--grid_hd.access(coords).count == 0)
 			{
-				grid_sd.access(coords_sd).gs = change_gs(grid_sd.access(coords_sd).gs, f, true);
+				/* Keep in sync the grid_sd as one HD pixel turns from black to white. */
+				grid_sd.access(coords_sd).gs = increment_gs_value(
+					grid_sd.access(coords_sd).gs, hd_sd_ratio);
 			}
 		}
 	}
@@ -285,61 +377,49 @@ void draw(
 
 constexpr float tau = 6.28318530717f;
 
-GridCoords pin_coords(unsigned int pin, unsigned int pin_count, unsigned int side)
+GridCoords pin_coords_circle_pinset(unsigned int pin, unsigned int pin_count, unsigned int side)
 {
 	float const angle = tau * static_cast<float>(pin) / static_cast<float>(pin_count);
 	return GridCoords{
-		((std::cos(angle) + 1.0f) / 2.0f) * static_cast<float>(side - 1),
-		((std::sin(angle) + 1.0f) / 2.0f) * static_cast<float>(side - 1)};
+		static_cast<unsigned int>(((std::cos(angle) + 1.0f) / 2.0f) * static_cast<float>(side - 1)),
+		static_cast<unsigned int>(((std::sin(angle) + 1.0f) / 2.0f) * static_cast<float>(side - 1))};
 }
+
+using PinCoordsFunction = std::function<GridCoords(unsigned int, unsigned int, unsigned int)>;
 
 
 int main(int argc, char** argv)
 {
 	Config config{argc, argv};
 
-	LoadedPictureGrid input_picture = load_picture(config.input_picture_name.value_or("popeye"));
+	LoadedPictureGrid const input_picture = load_picture(config.input_picture_name.value_or("popeye"));
 
-	BitmapComatibleGrid bitmap_grid{input_picture.side};
-	for (unsigned int y = 0; y < bitmap_grid.side; y++)
-	for (unsigned int x = 0; x < bitmap_grid.side; x++)
-	{
-		bitmap_grid.access(GridCoords{x, y}) =
-			static_cast<PixelRgba<std::uint8_t>>(input_picture.access(GridCoords{x, y}));
-	}
-	bitmap_grid.output_as_bitmap("input.bmp");
+	input_picture.output_as_bitmap("input.bmp");
 
-	unsigned int const f = 8;
+	unsigned int const hd_sd_ratio = 8;
 	unsigned int const side_sd = input_picture.side;
-	unsigned int const side_hd = side_sd * f;
-	Grid<PixelGs<TypeGsSd>, row_mapping> input_sd{side_sd};
-	for (unsigned int y = 0; y < input_sd.side; y++)
-	for (unsigned int x = 0; x < input_sd.side; x++)
-	{
-		input_sd.access(GridCoords{x, y}) = input_picture.access(GridCoords{x, y});
-	}
-	Grid<PixelGs<TypeGsSd>, row_mapping> grid_sd{side_sd};
-	for (unsigned int y = 0; y < grid_sd.side; y++)
-	for (unsigned int x = 0; x < grid_sd.side; x++)
-	{
-		grid_sd.access(GridCoords{x, y}) = PixelGs<TypeGsSd>{std::numeric_limits<TypeGsSd>::max()};
-	}
-	Grid<PixelCount<TypeCountHd>, row_mapping> grid_hd{side_hd};
-	for (unsigned int y = 0; y < grid_hd.side; y++)
-	for (unsigned int x = 0; x < grid_hd.side; x++)
-	{
-		grid_hd.access(GridCoords{x, y}) = PixelCount<TypeCountHd>{0};
-	}
+	unsigned int const side_hd = side_sd * hd_sd_ratio;
+	GridGsSd const target_sd =
+		convert_grid_mapping<PixelGs<TypeGsSd>, MappingRow, MappingMain>(input_picture);
+	GridGsSd grid_sd{side_sd, [](GridCoords){return std::numeric_limits<TypeGsSd>::max();}};
+	GridCountHd grid_hd{side_hd, [](GridCoords){return PixelCount<TypeCountHd>{0};}};
 
 	unsigned int const pin_count = 512;
-	std::vector<std::pair<std::uint16_t, std::uint16_t>> pin_pairs;
-	pin_pairs.reserve(pin_count * pin_count);
+	PinCoordsFunction const pin_coords = pin_coords_circle_pinset;
+
+	std::vector<std::pair<unsigned int, RawLine>> lines;
+	lines.reserve(pin_count * pin_count);
+	
 	for (unsigned int pin_a = 0; pin_a < pin_count; pin_a++)
 	for (unsigned int pin_b = 0; pin_b < pin_count; pin_b++)
 	{
-		pin_pairs.push_back(std::make_pair(pin_a, pin_b));
+		GridCoords const a = pin_coords(pin_a, pin_count, side_hd);
+		GridCoords const b = pin_coords(pin_b, pin_count, side_hd);
+		RawLine const line_hd{a, b};
+		lines.push_back(std::make_pair(pin_a + pin_count * pin_b, line_hd));
 	}
 
+	float duration_total_seconds = 0.0f;
 	unsigned int line_count = 0;
 	std::vector<bool> strings_drawn;
 	strings_drawn.resize(pin_count * pin_count);
@@ -349,35 +429,22 @@ int main(int argc, char** argv)
 		auto const time_iter_begin = std::chrono::system_clock::now();
 		unsigned int const line_count_before = line_count;
 		unsigned int impossible_count = 0;
-		std::random_shuffle(pin_pairs.begin(), pin_pairs.end());
-		for (auto [pin_a, pin_b] : pin_pairs)
+		std::random_shuffle(lines.begin(), lines.end());
+		for (auto const& [line_index, line_hd] : lines)
 		{
-			bool const is_drawn = strings_drawn[pin_a + pin_count * pin_b];
+			bool const is_drawn = strings_drawn[line_index];
 			if (erase != is_drawn)
 			{
 				continue;
 			}
-			GridCoords const a = pin_coords(pin_a, pin_count, side_hd);
-			GridCoords const b = pin_coords(pin_b, pin_count, side_hd);
-			//std::cout << a.x << ", " << a.y << " -- " << b.x << ", " << b.y << ": " << std::flush;
-			RawLine const line_hd{a, b};
+
 			auto const [un_error_delta_sd, is_possible] =
-				compute_un_error_delta_sd(input_sd, grid_sd, grid_hd, line_hd, erase);
-			#if 0
-			if (not is_possible)
-			{
-				std::cout << pin_a << " -- " << pin_b << ": " << "impossible" << std::endl;
-			}
-			else
-			{
-				std::cout << pin_a << " -- " << pin_b << ": " << un_error_delta_sd << std::endl;
-			}
-			#endif
+				compute_un_error_delta_sd(target_sd, grid_sd, grid_hd, line_hd, erase);
 			if (is_possible && (un_error_delta_sd < 0))
 			{
-				draw(input_sd, grid_sd, grid_hd, line_hd, erase);
+				draw(grid_sd, grid_hd, line_hd, erase);
 				line_count += erase ? -1 : 1;
-				strings_drawn[pin_a + pin_count * pin_b] = not erase;
+				strings_drawn[line_index] = not erase;
 			}
 			else if (not is_possible)
 			{
@@ -385,13 +452,18 @@ int main(int argc, char** argv)
 			}
 		}
 		auto const time_iter_end = std::chrono::system_clock::now();
-		auto const duration_iter =
+		auto const duration_iter_milliseconds =
 			std::chrono::duration_cast<std::chrono::milliseconds>(time_iter_end - time_iter_begin);
+		float const duration_iter_seconds =
+			static_cast<float>(duration_iter_milliseconds.count()) / 1000.0f;
+		duration_total_seconds += duration_iter_seconds;
 
-		int line_count_diff = static_cast<int>(line_count) - static_cast<int>(line_count_before);
+		int const line_count_diff =
+			static_cast<int>(line_count) - static_cast<int>(line_count_before);
 		std::cout << "Lines " << (erase ? "erased" : "drawn") << ": "
 			<< std::abs(line_count_diff) << std::endl;
-		std::cout << "Time taken: " << duration_iter.count() << "ms" << std::endl;
+		std::cout << "Time taken: " << duration_iter_seconds << "s "
+			<< "(total: " << duration_total_seconds << "s)" << std::endl;
 		if (impossible_count > 0)
 		{
 			std::cout << "Warning: " << impossible_count << " lines were impossible to draw "
@@ -399,7 +471,8 @@ int main(int argc, char** argv)
 		}
 		grid_hd.output_as_bitmap("string_art_hd.bmp");
 		grid_sd.output_as_bitmap("string_art_sd.bmp");
-		std::cout << "RMS: " << compute_rms(input_sd, grid_sd) << std::endl;
+		compute_grid_error_as_grid(target_sd, grid_sd).output_as_bitmap("error.bmp");
+		std::cout << "RMS: " << compute_grid_rms(target_sd, grid_sd) << std::endl;
 
 		if (line_count_diff == 0)
 		{
