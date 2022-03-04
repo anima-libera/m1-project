@@ -60,17 +60,6 @@ public:
 	Iterator end() const;
 };
 
-#if 0
-/* Mapping of the cells of a 2D square grid in 1D memory representation. */
-using Mapping = std::uint32_t (*)(GridCoords coords, unsigned int side);
-
-/* Row mapping, the classic. */
-std::uint32_t row_mapping(GridCoords coords, unsigned int side);
-GridCoords row_mapping_inverse(std::uint32_t index, unsigned int side);
-
-/* Z-Order mapping, see implementation for details. */
-std::uint32_t zorder_mapping(GridCoords coords, unsigned int side);
-#endif
 
 class MappingRow
 {
@@ -80,6 +69,13 @@ public:
 };
 
 class MappingZorder
+{
+public:
+	static std::uint32_t coords_to_index(GridCoords coords, unsigned int side);
+	static GridCoords index_to_coords(std::uint32_t index, unsigned int side);
+};
+
+class MappingHilbert
 {
 public:
 	static std::uint32_t coords_to_index(GridCoords coords, unsigned int side);

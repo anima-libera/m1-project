@@ -15,6 +15,7 @@
 #include <chrono>
 #include <sstream>
 #include <functional>
+#include <random>
 
 using namespace StringArtRennes;
 
@@ -419,6 +420,9 @@ int main(int argc, char** argv)
 		lines.push_back(std::make_pair(pin_a + pin_count * pin_b, line_hd));
 	}
 
+	std::random_device rd;
+	std::mt19937 g(rd());
+
 	float duration_total_seconds = 0.0f;
 	unsigned int line_count = 0;
 	std::vector<bool> strings_drawn;
@@ -429,7 +433,7 @@ int main(int argc, char** argv)
 		auto const time_iter_begin = std::chrono::system_clock::now();
 		unsigned int const line_count_before = line_count;
 		unsigned int impossible_count = 0;
-		std::random_shuffle(lines.begin(), lines.end());
+		std::shuffle(lines.begin(), lines.end(), g);
 		for (auto const& [line_index, line_hd] : lines)
 		{
 			bool const is_drawn = strings_drawn[line_index];

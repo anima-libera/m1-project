@@ -8,48 +8,6 @@
 namespace StringArtRennes
 {
 
-static inline bool is_power_of_two(unsigned int x)
-{
-	return (x & (x - 1)) == 0 && x != 0;
-}
-
-std::uint32_t MappingRow::coords_to_index(GridCoords coords, unsigned int side)
-{
-	return static_cast<std::uint32_t>(coords.x) + side * static_cast<std::uint32_t>(coords.y);
-}
-
-GridCoords MappingRow::index_to_coords(std::uint32_t index, unsigned int side)
-{
-	return GridCoords{
-		static_cast<std::uint16_t>(index % side),
-		static_cast<std::uint16_t>(index / side)};
-}
-
-std::uint32_t MappingZorder::coords_to_index(GridCoords coords, [[maybe_unused]] unsigned int side)
-{
-	/* Trick from http://graphics.stanford.edu/~seander/bithacks.html#InterleaveBMN
-	* that can be understood by looking at https://en.wikipedia.org/wiki/File:Z-curve.svg */
-	auto const spread_bits = [](std::uint32_t& x)
-	{
-		constexpr std::uint32_t spreading_patterns[] = {
-			0b01010101010101010101010101010101,
-			0b00110011001100110011001100110011,
-			0b00001111000011110000111100001111,
-			0b00000000111111110000000011111111};
-
-		x = (x | (x << 8)) & spreading_patterns[3];
-		x = (x | (x << 4)) & spreading_patterns[2];
-		x = (x | (x << 2)) & spreading_patterns[1];
-		x = (x | (x << 1)) & spreading_patterns[0];
-	};
-	std::uint32_t spreaded_x = coords.x;
-	spread_bits(spreaded_x);
-	std::uint32_t spreaded_y = coords.y;
-	spread_bits(spreaded_y);
-	return spreaded_x | (spreaded_y << 1);
-}
-
-
 GridCoords::GridCoords():
 	x{0}, y{0}
 {
@@ -148,6 +106,90 @@ RawRect::Iterator RawRect::begin() const
 RawRect::Iterator RawRect::end() const
 {
 	return Iterator{};
+}
+
+
+static inline bool is_power_of_two(unsigned int x)
+{
+	return (x & (x - 1)) == 0 && x != 0;
+}
+
+std::uint32_t MappingRow::coords_to_index(GridCoords coords, unsigned int side)
+{
+	return static_cast<std::uint32_t>(coords.x) + side * static_cast<std::uint32_t>(coords.y);
+}
+
+GridCoords MappingRow::index_to_coords(std::uint32_t index, unsigned int side)
+{
+	return GridCoords{
+		static_cast<std::uint16_t>(index % side),
+		static_cast<std::uint16_t>(index / side)};
+}
+
+std::uint32_t MappingZorder::coords_to_index(GridCoords coords, [[maybe_unused]] unsigned int side)
+{
+	/* Trick from http://graphics.stanford.edu/~seander/bithacks.html#InterleaveBMN
+	* that can be understood by looking at https://en.wikipedia.org/wiki/File:Z-curve.svg */
+	auto const spread_bits = [](std::uint32_t& x)
+	{
+		constexpr std::uint32_t spreading_patterns[] = {
+			0b01010101010101010101010101010101,
+			0b00110011001100110011001100110011,
+			0b00001111000011110000111100001111,
+			0b00000000111111110000000011111111};
+
+		x = (x | (x << 8)) & spreading_patterns[3];
+		x = (x | (x << 4)) & spreading_patterns[2];
+		x = (x | (x << 2)) & spreading_patterns[1];
+		x = (x | (x << 1)) & spreading_patterns[0];
+	};
+	std::uint32_t spreaded_x = coords.x;
+	spread_bits(spreaded_x);
+	std::uint32_t spreaded_y = coords.y;
+	spread_bits(spreaded_y);
+	return spreaded_x | (spreaded_y << 1);
+}
+
+static void hilbert_rotate_quadrant(GridCoords& coords, unsigned int side, int rx, int ry)
+{
+	if (ry == 0)
+	{
+		if (rx == 1)
+		{
+			coords.x = side-1 - coords.x;
+			coords.y = side-1 - coords.y;
+		}
+		std::swap(coords.x, coords.y);
+	}
+}
+
+std::uint32_t MappingHilbert::coords_to_index(GridCoords coords, unsigned int side)
+{
+	int rx, ry, s, d = 0;
+	for (s = side / 2; s > 0; s /= 2)
+	{
+		rx = (coords.x & s) > 0;
+		ry = (coords.y & s) > 0;
+		d += s * s * ((3 * rx) ^ ry);
+		hilbert_rotate_quadrant(coords, side, rx, ry);
+	}
+	return d;
+}
+
+GridCoords MappingHilbert::index_to_coords(std::uint32_t index, unsigned int side)
+{
+	int rx, ry, s, t = index;
+	GridCoords coords{0, 0};
+	for (s = 1; s < static_cast<int>(side); s *= 2)
+	{
+		rx = 1 & (t / 2);
+		ry = 1 & (t ^ rx);
+		hilbert_rotate_quadrant(coords, side, rx, ry);
+		coords.x += s * rx;
+		coords.y += s * ry;
+		t /= 4;
+	}
+	return coords;
 }
 
 
@@ -329,6 +371,10 @@ template class Grid<PixelGs<std::uint8_t>, MappingZorder>;
 template class Grid<PixelCount<std::uint8_t>, MappingZorder>;
 template class Grid<PixelCount<std::uint16_t>, MappingZorder>;
 template class Grid<PixelRgba<std::uint8_t>, MappingZorder>;
+template class Grid<PixelGs<std::uint8_t>, MappingHilbert>;
+template class Grid<PixelCount<std::uint8_t>, MappingHilbert>;
+template class Grid<PixelCount<std::uint16_t>, MappingHilbert>;
+template class Grid<PixelRgba<std::uint8_t>, MappingHilbert>;
 
 template<typename CellTypeSrc, typename MappingSrc, typename CellTypeDst, typename MappingDst>
 Grid<CellTypeDst, MappingDst> convert_grid(
@@ -354,10 +400,13 @@ Grid<CellType, MappingDst> convert_grid_mapping(Grid<CellType, MappingSrc> const
 	return grid_dst;
 }
 
+template Grid<PixelGs<std::uint8_t>, MappingRow> convert_grid_mapping(
+	Grid<PixelGs<std::uint8_t>, MappingRow> const& grid_src);
+
 template Grid<PixelGs<std::uint8_t>, MappingZorder> convert_grid_mapping(
 	Grid<PixelGs<std::uint8_t>, MappingRow> const& grid_src);
 
-template Grid<PixelGs<std::uint8_t>, MappingRow> convert_grid_mapping(
+template Grid<PixelGs<std::uint8_t>, MappingHilbert> convert_grid_mapping(
 	Grid<PixelGs<std::uint8_t>, MappingRow> const& grid_src);
 
 } /* StringArtRennes */
