@@ -23,7 +23,10 @@ using namespace StringArtRennes;
 class Config
 {
 public:
+	bool test = false;
 	std::optional<std::string> input_picture_name;
+	std::optional<std::string> input_pinset_path;
+	std::optional<unsigned int> circle_pins;
 	std::optional<unsigned int> hd_sd_factor;
 
 public:
@@ -37,7 +40,13 @@ Config::Config(int argc, char** argv)
 	unsigned int i = 1;
 	while (i < argc_unsigned)
 	{
-		if (strcmp(argv[i], "-i") == 0)
+		if (strcmp(argv[i], "--test") == 0)
+		{
+			this->test = true;
+			i += 1;
+			continue;
+		}
+		else if (strcmp(argv[i], "-i") == 0)
 		{
 			if (i + 1 < argc_unsigned)
 			{
@@ -48,6 +57,41 @@ Config::Config(int argc, char** argv)
 				std::cerr << "Error: "
 					<< "Command line option \"" << argv[i] << "\" "
 					<< "expects a picture name to follow it as an argument" << std::endl;
+				std::exit(EXIT_FAILURE);
+			}
+			i += 2;
+			continue;
+		}
+		else if (strcmp(argv[i], "-p") == 0)
+		{
+			if (i + 1 < argc_unsigned)
+			{
+				this->input_pinset_path = std::string{argv[i + 1]};
+			}
+			else
+			{
+				std::cerr << "Error: "
+					<< "Command line option \"" << argv[i] << "\" "
+					<< "expects a file path to follow it as an argument" << std::endl;
+				std::exit(EXIT_FAILURE);
+			}
+			i += 2;
+			continue;
+		}
+		else if (strcmp(argv[i], "-c") == 0)
+		{
+			if (i + 1 < argc_unsigned)
+			{
+				std::istringstream arg{argv[i + 1]};
+				unsigned int arg_value;
+				arg >> arg_value;
+				this->circle_pins = arg_value;
+			}
+			else
+			{
+				std::cerr << "Error: "
+					<< "Command line option \"" << argv[i] << "\" "
+					<< "expects a number to follow it as an argument" << std::endl;
 				std::exit(EXIT_FAILURE);
 			}
 			i += 2;
@@ -169,7 +213,7 @@ static inline T square(T x)
 }
 
 
-using MappingMain = MappingRow;
+using MappingMain = MappingZorder;
 using TypeGsSd = std::uint8_t;
 using GridGsSd = Grid<PixelGs<TypeGsSd>, MappingMain>;
 using TypeCountHd = std::uint16_t;
@@ -376,8 +420,7 @@ void draw(
 	}
 }
 
-constexpr float tau = 6.28318530717f;
-
+#if 0
 GridCoords pin_coords_circle_pinset(unsigned int pin, unsigned int pin_count, unsigned int side)
 {
 	float const angle = tau * static_cast<float>(pin) / static_cast<float>(pin_count);
@@ -387,7 +430,7 @@ GridCoords pin_coords_circle_pinset(unsigned int pin, unsigned int pin_count, un
 }
 
 using PinCoordsFunction = std::function<GridCoords(unsigned int, unsigned int, unsigned int)>;
-
+#endif
 
 int main(int argc, char** argv)
 {
@@ -397,6 +440,12 @@ int main(int argc, char** argv)
 
 	input_picture.output_as_bitmap("input.bmp");
 
+	if (config.test)
+	{
+		std::cout << "test" << std::endl;
+		return 0;
+	}
+
 	unsigned int const hd_sd_ratio = 8;
 	unsigned int const side_sd = input_picture.side;
 	unsigned int const side_hd = side_sd * hd_sd_ratio;
@@ -405,35 +454,71 @@ int main(int argc, char** argv)
 	GridGsSd grid_sd{side_sd, [](GridCoords){return std::numeric_limits<TypeGsSd>::max();}};
 	GridCountHd grid_hd{side_hd, [](GridCoords){return PixelCount<TypeCountHd>{0};}};
 
-	unsigned int const pin_count = 512;
-	PinCoordsFunction const pin_coords = pin_coords_circle_pinset;
+	
+	/* Get the pin table. */
+	std::vector<GridCoords> pins;
+	if (config.input_pinset_path.has_value())
+	{
+		std::cout << "Getting pins from "
+			<< "\"" << config.input_pinset_path.value() << "\"" << std::endl;
+		std::fstream pinset_file{config.input_pinset_path.value()};
+		while (pinset_file.good())
+		{
+			float x, y;
+			char comma;
+			pinset_file >> x >> comma >> y;
+			pins.push_back(GridCoords{
+				static_cast<unsigned int>(x * static_cast<float>(hd_sd_ratio)),
+				static_cast<unsigned int>(y * static_cast<float>(hd_sd_ratio))});
+		}
+	}
+	if (config.circle_pins.has_value() || (not config.input_pinset_path.has_value()))
+	{
+		unsigned int const circle_pin_count = config.circle_pins.value_or(512);
+		std::cout << "Generating " << circle_pin_count << " pins in a circle shape" << std::endl;
+		constexpr float tau = 6.28318530717f;
+		for (unsigned int i = 0; i < circle_pin_count; i++)
+		{
+			float const angle = tau * static_cast<float>(i) / static_cast<float>(circle_pin_count);
+			pins.push_back(GridCoords{
+				static_cast<unsigned int>(((std::cos(angle) + 1.0f) / 2.0f)
+					* static_cast<float>(side_hd - 1)),
+				static_cast<unsigned int>(((std::sin(angle) + 1.0f) / 2.0f)
+					* static_cast<float>(side_hd - 1))});
+		}
+	}
+	unsigned int const pin_count = pins.size();
+	std::cout << "Pin count: " << pin_count << std::endl;
 
+	/* Get the line table. */
 	std::vector<std::pair<unsigned int, RawLine>> lines;
 	lines.reserve(pin_count * pin_count);
-	
-	for (unsigned int pin_a = 0; pin_a < pin_count; pin_a++)
-	for (unsigned int pin_b = 0; pin_b < pin_count; pin_b++)
+	for (unsigned int pin_index_a = 0; pin_index_a < pin_count; pin_index_a++)
+	for (unsigned int pin_index_b = 0; pin_index_b < pin_count; pin_index_b++)
 	{
-		GridCoords const a = pin_coords(pin_a, pin_count, side_hd);
-		GridCoords const b = pin_coords(pin_b, pin_count, side_hd);
+		GridCoords const a = pins[pin_index_a];
+		GridCoords const b = pins[pin_index_b];
 		RawLine const line_hd{a, b};
-		lines.push_back(std::make_pair(pin_a + pin_count * pin_b, line_hd));
+		lines.push_back(std::make_pair(pin_index_a + pin_count * pin_index_b, line_hd));
 	}
+	std::cout << "Line count: " << lines.size() << std::endl;
 
-	std::random_device rd;
-	std::mt19937 g(rd());
+
+	std::random_device random_device;
+	std::mt19937 random_generator(random_device());
 
 	float duration_total_seconds = 0.0f;
 	unsigned int line_count = 0;
 	std::vector<bool> strings_drawn;
 	strings_drawn.resize(pin_count * pin_count);
 	bool erase = false;
+	std::cout << std::endl;
 	while (true)
 	{
 		auto const time_iter_begin = std::chrono::system_clock::now();
 		unsigned int const line_count_before = line_count;
 		unsigned int impossible_count = 0;
-		std::shuffle(lines.begin(), lines.end(), g);
+		std::shuffle(lines.begin(), lines.end(), random_generator);
 		for (auto const& [line_index, line_hd] : lines)
 		{
 			bool const is_drawn = strings_drawn[line_index];
@@ -444,7 +529,7 @@ int main(int argc, char** argv)
 
 			auto const [un_error_delta_sd, is_possible] =
 				compute_un_error_delta_sd(target_sd, grid_sd, grid_hd, line_hd, erase);
-			if (is_possible && (un_error_delta_sd < 0))
+			if (is_possible && (un_error_delta_sd < 0.0f))
 			{
 				draw(grid_sd, grid_hd, line_hd, erase);
 				line_count += erase ? -1 : 1;

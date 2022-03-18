@@ -1,19 +1,24 @@
 
-"""
-Generates keypoint list via the OpenCV SURF implementation,
-so that they can be used as pin positions for string art.
+""" Note:
+OpenCV's SIFT and SURF implementations must be available for this to work.
+The Anaconda environment will install OpenCV with these implemnations available
+(which is not the default since OpenCV 3,
+and requires a painful config and build process to get these manually).
+
+https://www.anaconda.com/
 """
 
 import cv2
-import sys
 
-image = cv2.imread(sys.argv[0], 0)
+input_image = cv2.imread("../../impl/pics/popeye.jpg")
+sift = cv2.SIFT_create()
+keypoints, keypoint_descriptors = sift.detectAndCompute(input_image, None)
 
-surf = cv2.xfeatures2d.SURF_create() # Doesn't work as-is, needs a custom compilation of OpenCV.
-# Note: Have not succedded yet in compiling and installing OpenCV with patents.
-surf.upright = True
+result_image = None
+result_image = cv2.drawKeypoints(input_image, keypoints, result_image)
+cv2.imwrite("sift_keypoints.png", result_image)
 
-keypoints = surf.detect(image, None)
-
+output = open("keypoints", "w")
 for keypoint in keypoints:
-	print(keypoint)
+	output.write(f"{keypoint.pt[0]}, {keypoint.pt[1]}\n")
+output.close()

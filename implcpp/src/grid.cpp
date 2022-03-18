@@ -262,7 +262,8 @@ template<typename CellType, typename Mapping>
 Grid<CellType, Mapping>::Grid(unsigned int side):
 	side{side}, data{new CellType[side * side]}
 {
-	if constexpr (std::is_same_v<Mapping, MappingRow>)
+	if constexpr (std::is_same_v<Mapping, MappingZorder>
+		|| std::is_same_v<Mapping, MappingHilbert>)
 	{
 		assert(is_power_of_two(this->side));
 		assert(this->side <= GridCoords::coord_max_value);

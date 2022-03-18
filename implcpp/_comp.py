@@ -7,12 +7,14 @@ Usage:
 
 Options:
   -h   --help       Prints this docstring and halts.
-  -l   --launch     Executes the bin if compiled, with what follows as args.
+
+-l   --launch     Executes the bin if compiled, with what follows as args.
   -d   --debug      Standard debuging build, defines DEBUG, launches with -d.
   -c=X --compiler=X Use the X compiler, where X is g++ or clang (TODO).
 
 Example usage for debug:
-  {this_script} -d --compiler=g++ -l
+  {this_script} -d --compiler=g++
+  -l
 """
 
 import sys
@@ -32,7 +34,8 @@ def print_error(error, *args, **kwargs):
 
 ## Options
 
-# Launch option -l
+# Launch option
+# -l
 option_launch = False
 for i in range(1, len(sys.argv)):
 	if sys.argv[i] in ("-l", "--launch"):
